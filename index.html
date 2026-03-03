@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NTC Registro - Control de Alumnos</title>
+    <meta name="description" content="Sistema de registro de actividades estudiantiles mediante tecnología NFC.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="app">
+        <!-- Dashboard / Management View -->
+        <main id="view-admin" class="view active">
+            <header>
+                <div class="logo">
+                    <i data-lucide="nfc"></i>
+                    <h1>NTC<span>Registro</span></h1>
+                </div>
+                <button id="btn-add-group" class="btn-primary">
+                    <i data-lucide="plus"></i> Nuevo Grupo
+                </button>
+            </header>
+
+            <section class="stats-overview">
+                <div class="stat-card">
+                    <span class="label">Total Grupos</span>
+                    <span class="value" id="stat-groups">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="label">Total Alumnos</span>
+                    <span class="value" id="stat-students">0</span>
+                </div>
+            </section>
+
+            <div class="search-container card">
+                <div class="search-box">
+                    <i data-lucide="search"></i>
+                    <input type="text" id="input-search-student" placeholder="Buscar alumno en todos los grupos..."
+                        oninput="app.handleSearch(this.value)">
+                </div>
+                <div id="search-results" class="search-results-dropdown"></div>
+            </div>
+
+            <div id="group-navigation" class="group-nav-header" style="display: none;">
+                <button class="btn-text" onclick="app.showAdmin()">
+                    <i data-lucide="chevron-left"></i> Todos los grupos
+                </button>
+                <h2 id="current-group-title">Grupo 3ro A</h2>
+            </div>
+
+            <section id="groups-container">
+                <!-- Groups will be rendered here -->
+                <div class="empty-state">
+                    <i data-lucide="users"></i>
+                    <p>No hay grupos registrados todavía.</p>
+                </div>
+            </section>
+
+            <section class="instructions card">
+                <h3><i data-lucide="info"></i> Cómo usar con NFC</h3>
+                <p>1. Crea un grupo y agrega a tus alumnos.</p>
+                <p>2. Haz clic en el icono <i data-lucide="share-2" style="width:14px; display:inline"></i> para copiar
+                    el enlace único del alumno.</p>
+                <p>3. Usa una app como "NFC Tools" en tu iPhone para grabar ese enlace en un tag NFC.</p>
+                <p>4. Al acercar tu iPhone al tag, se abrirá directamente el registro del alumno.</p>
+            </section>
+        </main>
+
+        <!-- Student Registration View (Triggered by NFC link or manual) -->
+        <main id="view-student" class="view">
+            <header>
+                <button class="btn-back" onclick="app.showAdmin()">
+                    <i data-lucide="arrow-left"></i> Volver
+                </button>
+                <div class="student-info-header">
+                    <h2 id="display-student-name">Nombre del Alumno</h2>
+                    <p id="display-student-group">Grupo</p>
+                </div>
+                <button class="btn-icon" onclick="app.printStudent()" title="Imprimir Historial">
+                    <i data-lucide="printer"></i>
+                </button>
+            </header>
+
+            <div class="registration-form card">
+                <h3>Registrar Actividad</h3>
+                <form id="form-add-activity">
+                    <div class="form-group">
+                        <label for="activity-name">Nombre de la Actividad</label>
+                        <input type="text" id="activity-name" placeholder="Ej. Tarea 1, Examen..."
+                            list="activities-suggestions" required>
+                        <datalist id="activities-suggestions"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label for="activity-grade">Calificación</label>
+                        <input type="number" id="activity-grade" min="0" max="100" placeholder="0-100" required>
+                    </div>
+                    <button type="submit" class="btn-submit">Guardar Registro</button>
+                </form>
+            </div>
+
+            <div class="activities-summary">
+                <div class="summary-header">
+                    <h3>Progreso de Actividades</h3>
+                    <div class="progress-badge">
+                        <span id="progress-text">0/5</span>
+                    </div>
+                </div>
+                <div class="progress-bar-container">
+                    <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+                </div>
+
+                <div class="activities-list" id="activities-list">
+                    <!-- Activities will be rendered here -->
+                </div>
+            </div>
+
+            <!-- Hidden Print Container -->
+            <div id="print-area" class="print-only"></div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-container" class="modal-overlay">
+        <div class="modal card">
+            <h3 id="modal-title">Nuevo Grupo</h3>
+            <div id="modal-content">
+                <!-- Dynamic content -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="app.closeModal()">Cancelar</button>
+                <button id="modal-confirm" class="btn-primary">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+    <script>
+        // Lucide will be initialized inside app.init() effectively
+    </script>
+</body>
+
+</html>
