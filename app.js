@@ -425,13 +425,16 @@ const app = {
 
     handleModalConfirm() {
         const ctx = this.modalContext;
+        console.log("Confirmando modal:", ctx);
+
         if (ctx.type === 'group') {
-            const name = document.getElementById('input-group-name').value;
+            const nameInput = document.getElementById('input-group-name');
+            const name = nameInput ? nameInput.value : '';
             if (!name) return;
 
             if (ctx.targetId) {
                 const group = this.data.groups.find(g => g.id === ctx.targetId);
-                group.name = name;
+                if (group) group.name = name;
             } else {
                 this.data.groups.push({
                     id: Date.now().toString(),
@@ -440,22 +443,31 @@ const app = {
                 });
             }
         } else if (ctx.type === 'student') {
-            const name = document.getElementById('input-student-name').value;
+            const nameInput = document.getElementById('input-student-name');
+            const name = nameInput ? nameInput.value : '';
             if (!name) return;
 
             const group = this.data.groups.find(g => g.id === ctx.targetId);
+            if (!group) {
+                console.error("Grupo no encontrado para el ID:", ctx.targetId);
+                return;
+            }
+
+            if (!group.students) group.students = [];
+
             if (ctx.studentId) {
                 const student = group.students.find(s => s.id === ctx.studentId);
-                student.name = name;
+                if (student) student.name = name;
             } else {
                 group.students.push({
                     id: Math.random().toString(36).substr(2, 9),
-                    name,
+                    name: name,
                     activities: []
                 });
             }
         } else if (ctx.type === 'login') {
-            const pin = document.getElementById('input-pin').value;
+            const pinInput = document.getElementById('input-pin');
+            const pin = pinInput ? pinInput.value : '';
             this.verifyPin(pin);
             return;
         }
