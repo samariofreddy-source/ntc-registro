@@ -123,7 +123,13 @@ const app = {
         document.getElementById('btn-login').onclick = () => this.login();
         document.getElementById('btn-logout').onclick = () => this.logout();
         document.getElementById('form-add-activity').onsubmit = (e) => this.handleActivitySubmit(e);
-        document.getElementById('modal-confirm').onclick = () => this.handleModalConfirm();
+
+        // Modal buttons
+        const btnConfirm = document.getElementById('modal-confirm');
+        if (btnConfirm) btnConfirm.onclick = () => this.handleModalConfirm();
+
+        const btnCancel = document.querySelector('.modal-actions .btn-secondary');
+        if (btnCancel) btnCancel.onclick = () => this.closeModal();
 
         // Close search if clicking outside
         document.addEventListener('click', (e) => {
