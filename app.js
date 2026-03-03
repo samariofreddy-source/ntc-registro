@@ -46,6 +46,7 @@ const app = {
     },
 
     verifyPin(pin) {
+        console.log("Verificando PIN:", pin);
         if (pin === this.MASTER_PIN) {
             localStorage.setItem('ntc_admin_auth', pin);
             this.checkAuth();
@@ -55,8 +56,9 @@ const app = {
                 this.renderStudentActivities(student);
             }
             this.closeModal();
+            alert("Acceso concedido");
         } else {
-            alert("PIN incorrecto");
+            alert("PIN incorrecto. Intente: 1310");
         }
     },
 
@@ -664,4 +666,10 @@ const app = {
 };
 
 window.app = app;
+// Expose functions globally to be sure
+window.handleModalConfirm = () => app.handleModalConfirm();
+window.closeModal = () => app.closeModal();
+window.appLogin = () => app.login();
+window.appLogout = () => app.logout();
+
 app.init();
