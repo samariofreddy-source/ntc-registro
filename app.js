@@ -431,15 +431,20 @@ const app = {
 
     handleModalConfirm() {
         const ctx = this.modalContext;
+        if (!ctx) return this.closeModal();
+
         console.log("Confirmando modal:", ctx);
 
         if (ctx.type === 'group') {
             const nameInput = document.getElementById('input-group-name');
-            const name = nameInput ? nameInput.value : '';
-            if (!name) return;
+            const name = nameInput ? nameInput.value.trim() : '';
+            if (!name) {
+                alert("Por favor ingrese un nombre para el grupo.");
+                return;
+            }
 
             if (ctx.targetId) {
-                const group = this.data.groups.find(g => g.id === ctx.targetId);
+                const group = this.data.groups.find(g => String(g.id) === String(ctx.targetId));
                 if (group) group.name = name;
             } else {
                 this.data.groups.push({
@@ -450,19 +455,22 @@ const app = {
             }
         } else if (ctx.type === 'student') {
             const nameInput = document.getElementById('input-student-name');
-            const name = nameInput ? nameInput.value : '';
-            if (!name) return;
+            const name = nameInput ? nameInput.value.trim() : '';
+            if (!name) {
+                alert("Por favor ingrese el nombre del alumno.");
+                return;
+            }
 
-            const group = this.data.groups.find(g => g.id === ctx.targetId);
+            const group = this.data.groups.find(g => String(g.id) === String(ctx.targetId));
             if (!group) {
-                console.error("Grupo no encontrado para el ID:", ctx.targetId);
+                alert("Error: No se encontró el grupo seleccionado (" + ctx.targetId + ").");
                 return;
             }
 
             if (!group.students) group.students = [];
 
             if (ctx.studentId) {
-                const student = group.students.find(s => s.id === ctx.studentId);
+                const student = group.students.find(s => String(s.id) === String(ctx.studentId));
                 if (student) student.name = name;
             } else {
                 group.students.push({
