@@ -27,9 +27,17 @@
                     <i data-lucide="nfc"></i>
                     <h1>NTC<span>Registro</span></h1>
                 </div>
-                <button id="btn-add-group" class="btn-primary">
-                    <i data-lucide="plus"></i> Nuevo Grupo
-                </button>
+                <div class="header-actions">
+                    <button id="btn-login" class="btn-secondary" onclick="app.login()" style="display: flex;">
+                        <i data-lucide="lock"></i>
+                    </button>
+                    <button id="btn-logout" class="btn-secondary admin-only" onclick="app.logout()">
+                        <i data-lucide="unlock"></i>
+                    </button>
+                    <button id="btn-add-group" class="btn-primary admin-only">
+                        <i data-lucide="plus"></i> Nuevo Grupo
+                    </button>
+                </div>
             </header>
 
             <section class="stats-overview">
@@ -92,7 +100,7 @@
                 </button>
             </header>
 
-            <div class="registration-form card">
+            <div class="registration-form card admin-only">
                 <h3>Registrar Actividad</h3>
                 <form id="form-add-activity">
                     <div class="form-group">

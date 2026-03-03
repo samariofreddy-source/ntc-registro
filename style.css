@@ -1,3 +1,27 @@
+/* Security Visibility */
+.admin-only {
+    display: none !important;
+}
+
+body.is-admin .admin-only {
+    display: flex !important;
+}
+
+body.is-admin .admin-only.card,
+body.is-admin .admin-only.registration-form {
+    display: block !important;
+}
+
+body.is-admin #btn-login {
+    display: none !important;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
 :root {
     --primary: #6366f1;
     --primary-hover: #4f46e5;

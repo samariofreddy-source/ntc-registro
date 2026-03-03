@@ -22,8 +22,49 @@ const app = {
     init() {
         this.loadData();
         this.bindEvents();
+        this.checkAuth();
         this.checkRoute();
         window.addEventListener('hashchange', () => this.checkRoute());
+    },
+
+    isAdmin: false,
+    MASTER_PIN: "1310",
+
+    checkAuth() {
+        const savedAuth = localStorage.getItem('ntc_admin_auth');
+        if (savedAuth === this.MASTER_PIN) {
+            this.isAdmin = true;
+            document.body.classList.add('is-admin');
+        } else {
+            this.isAdmin = false;
+            document.body.classList.remove('is-admin');
+        }
+    },
+
+    login() {
+        const pin = prompt("Ingrese el PIN de Maestro:");
+        if (pin === this.MASTER_PIN) {
+            localStorage.setItem('ntc_admin_auth', pin);
+            this.checkAuth();
+            this.renderAdmin();
+            if (this.currentStudentId) {
+                const student = this.findStudent(this.currentStudentId);
+                this.renderStudentActivities(student);
+            }
+            alert("Acceso concedido");
+        } else {
+            alert("PIN incorrecto");
+        }
+    },
+
+    logout() {
+        localStorage.removeItem('ntc_admin_auth');
+        this.checkAuth();
+        this.renderAdmin();
+        if (this.currentStudentId) {
+            const student = this.findStudent(this.currentStudentId);
+            this.renderStudentActivities(student);
+        }
     },
 
     loadData() {
@@ -200,7 +241,7 @@ const app = {
                             <i data-lucide="edit-2" style="width:14px"></i>
                         </button>
                     </div>
-                    <div class="group-actions">
+                    <div class="group-actions admin-only">
                         <button class="btn-icon danger" onclick="app.deleteGroup('${group.id}')" title="Eliminar Grupo">
                             <i data-lucide="trash-2"></i>
                         </button>
@@ -219,20 +260,20 @@ const app = {
                             <div class="student-info">
                                 <div style="display:flex; align-items:center; gap:8px">
                                     <span class="student-name">${student.name}</span>
-                                    <button class="btn-icon" onclick="app.openModal('student', '${group.id}', '${student.name}', '${student.id}')" title="Editar Alumno">
+                                    <button class="btn-icon admin-only" onclick="app.openModal('student', '${group.id}', '${student.name}', '${student.id}')" title="Editar Alumno">
                                         <i data-lucide="edit-3" style="width:12px"></i>
                                     </button>
                                 </div>
                                 <span class="student-meta">${student.activities.length} / ${maxActivities} actividades</span>
                             </div>
                             <div class="student-actions">
-                                <button class="btn-icon btn-nfc" onclick="app.copyNfcLink('${student.id}')" title="Copiar link para NFC">
+                                <button class="btn-icon btn-nfc admin-only" onclick="app.copyNfcLink('${student.id}')" title="Copiar link para NFC">
                                     <i data-lucide="share-2"></i>
                                 </button>
                                 <button class="btn-icon" onclick="window.location.hash = 'student/${student.id}'">
                                     <i data-lucide="chevron-right"></i>
                                 </button>
-                                <button class="btn-icon danger" onclick="app.deleteStudent('${group.id}', '${student.id}')" title="Eliminar Alumno">
+                                <button class="btn-icon danger admin-only" onclick="app.deleteStudent('${group.id}', '${student.id}')" title="Eliminar Alumno">
                                     <i data-lucide="trash-2"></i>
                                 </button>
                             </div>
@@ -300,10 +341,10 @@ const app = {
                 </div>
                 <div class="activity-actions">
                     <div class="activity-grade">${act.grade}</div>
-                    <button class="btn-icon" onclick="app.editActivity('${act.id}')" title="Editar">
+                    <button class="btn-icon admin-only" onclick="app.editActivity('${act.id}')" title="Editar">
                         <i data-lucide="edit-2" style="width:16px"></i>
                     </button>
-                    <button class="btn-icon danger" onclick="app.deleteActivity('${act.id}')" title="Eliminar">
+                    <button class="btn-icon danger admin-only" onclick="app.deleteActivity('${act.id}')" title="Eliminar">
                         <i data-lucide="trash-2" style="width:16px"></i>
                     </button>
                 </div>
