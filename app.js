@@ -42,7 +42,10 @@ const app = {
     },
 
     login() {
-        const pin = prompt("Ingrese el PIN de Maestro:");
+        this.openModal('login');
+    },
+
+    verifyPin(pin) {
         if (pin === this.MASTER_PIN) {
             localStorage.setItem('ntc_admin_auth', pin);
             this.checkAuth();
@@ -51,7 +54,7 @@ const app = {
                 const student = this.findStudent(this.currentStudentId);
                 this.renderStudentActivities(student);
             }
-            alert("Acceso concedido");
+            this.closeModal();
         } else {
             alert("PIN incorrecto");
         }
@@ -117,6 +120,8 @@ const app = {
 
     bindEvents() {
         document.getElementById('btn-add-group').onclick = () => this.openModal('group');
+        document.getElementById('btn-login').onclick = () => this.login();
+        document.getElementById('btn-logout').onclick = () => this.logout();
         document.getElementById('form-add-activity').onsubmit = (e) => this.handleActivitySubmit(e);
         document.getElementById('modal-confirm').onclick = () => this.handleModalConfirm();
 
@@ -403,6 +408,14 @@ const app = {
                     <input type="text" id="input-student-name" value="${currentName}" placeholder="Nombre del alumno">
                 </div>
             `;
+        } else if (type === 'login') {
+            title.textContent = 'Acceso de Maestro';
+            content.innerHTML = `
+                <div class="form-group">
+                    <label>Ingrese el PIN</label>
+                    <input type="password" id="input-pin" placeholder="****" inputmode="numeric" pattern="[0-9]*">
+                </div>
+            `;
         }
     },
 
@@ -441,6 +454,10 @@ const app = {
                     activities: []
                 });
             }
+        } else if (ctx.type === 'login') {
+            const pin = document.getElementById('input-pin').value;
+            this.verifyPin(pin);
+            return;
         }
 
         this.saveData();
