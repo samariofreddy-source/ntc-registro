@@ -31,7 +31,7 @@ const app = {
     MASTER_PIN: "1310",
 
     checkAuth() {
-        const savedAuth = localStorage.getItem('ntc_admin_auth');
+        const savedAuth = sessionStorage.getItem('ntc_admin_auth');
         if (savedAuth === this.MASTER_PIN) {
             this.isAdmin = true;
             document.body.classList.add('is-admin');
@@ -48,7 +48,7 @@ const app = {
     verifyPin(pin) {
         console.log("Verificando PIN:", pin);
         if (pin === this.MASTER_PIN) {
-            localStorage.setItem('ntc_admin_auth', pin);
+            sessionStorage.setItem('ntc_admin_auth', pin);
             this.checkAuth();
             this.renderAdmin();
             if (this.currentStudentId) {
@@ -63,7 +63,7 @@ const app = {
     },
 
     logout() {
-        localStorage.removeItem('ntc_admin_auth');
+        sessionStorage.removeItem('ntc_admin_auth');
         this.checkAuth();
         this.renderAdmin();
         if (this.currentStudentId) {
@@ -81,12 +81,13 @@ const app = {
                 const newDataStr = JSON.stringify(val);
                 const oldDataStr = JSON.stringify(this.data);
 
-                if (newDataStr !== oldDataStr) {
+                if (newDataStr !== oldDataStr || !this.renderedOnce) {
                     this.data = val;
                     if (!this.data.groups) this.data.groups = [];
 
                     this.renderAdmin();
                     this.updateStats();
+                    this.renderedOnce = true;
 
                     if (this.currentStudentId) {
                         const student = this.findStudent(this.currentStudentId);
@@ -98,6 +99,8 @@ const app = {
                 if (saved) {
                     this.data = JSON.parse(saved);
                     if (!this.data.groups) this.data.groups = [];
+                    this.renderAdmin();
+                    this.updateStats();
                     this.saveData();
                 }
             }
@@ -163,7 +166,7 @@ const app = {
         document.getElementById('view-student').classList.remove('active');
         document.getElementById('view-admin').classList.add('active');
         document.getElementById('group-navigation').style.display = 'none';
-        document.getElementById('btn-add-group').style.display = 'flex';
+        document.body.classList.remove('is-group-isolated');
         window.location.hash = '';
         this.renderAdmin();
     },
@@ -179,7 +182,7 @@ const app = {
         document.getElementById('view-admin').classList.add('active');
         document.getElementById('group-navigation').style.display = 'flex';
         document.getElementById('current-group-title').textContent = group.name;
-        document.getElementById('btn-add-group').style.display = 'none';
+        document.body.classList.add('is-group-isolated');
         this.renderAdmin();
     },
 

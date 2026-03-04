@@ -16,6 +16,10 @@ body.is-admin #btn-login {
     display: none !important;
 }
 
+body.is-group-isolated #btn-add-group {
+    display: none !important;
+}
+
 .header-actions {
     display: flex;
     gap: 10px;
