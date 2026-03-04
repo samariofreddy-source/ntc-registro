@@ -20,6 +20,7 @@ const app = {
     },
 
     init() {
+        console.log("Iniciando app, Admin status:", this.isAdmin);
         this.loadData();
         this.bindEvents();
         this.checkAuth();
@@ -31,12 +32,9 @@ const app = {
     MASTER_PIN: "1310",
 
     checkAuth() {
-        const savedAuth = sessionStorage.getItem('ntc_admin_auth');
-        if (savedAuth === this.MASTER_PIN) {
-            this.isAdmin = true;
+        if (this.isAdmin) {
             document.body.classList.add('is-admin');
         } else {
-            this.isAdmin = false;
             document.body.classList.remove('is-admin');
         }
     },
@@ -48,7 +46,7 @@ const app = {
     verifyPin(pin) {
         console.log("Verificando PIN:", pin);
         if (pin === this.MASTER_PIN) {
-            sessionStorage.setItem('ntc_admin_auth', pin);
+            this.isAdmin = true;
             this.checkAuth();
             this.renderAdmin();
             if (this.currentStudentId) {
@@ -63,7 +61,7 @@ const app = {
     },
 
     logout() {
-        sessionStorage.removeItem('ntc_admin_auth');
+        this.isAdmin = false;
         this.checkAuth();
         this.renderAdmin();
         if (this.currentStudentId) {
@@ -257,7 +255,7 @@ const app = {
                 <div class="group-header">
                     <div style="display:flex; align-items:center; gap:10px">
                         <h3 class="group-title" style="cursor:pointer" onclick="window.location.hash='#group/${group.id}'">${group.name}</h3>
-                        <button class="btn-icon" onclick="app.openModal('group', '${group.id}', '${group.name}')" title="Editar Grupo">
+                        <button class="btn-icon admin-only" onclick="app.openModal('group', '${group.id}', '${group.name}')" title="Editar Grupo">
                             <i data-lucide="edit-2" style="width:14px"></i>
                         </button>
                     </div>
