@@ -15,6 +15,9 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
+    <!-- html2pdf.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -95,9 +98,14 @@
                     <h2 id="display-student-name">Nombre del Alumno</h2>
                     <p id="display-student-group">Grupo</p>
                 </div>
-                <button class="btn-icon" onclick="app.printStudent()" title="Imprimir Historial">
-                    <i data-lucide="printer"></i>
-                </button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-icon" onclick="app.downloadStudent()" title="Descargar Historial">
+                        <i data-lucide="download"></i>
+                    </button>
+                    <button class="btn-icon" onclick="app.printStudent()" title="Imprimir Historial">
+                        <i data-lucide="printer"></i>
+                    </button>
+                </div>
             </header>
 
             <div class="registration-form card admin-only">

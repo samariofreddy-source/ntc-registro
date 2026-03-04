@@ -262,10 +262,13 @@ const app = {
                         <button class="btn-icon danger" onclick="app.deleteGroup('${group.id}')" title="Eliminar Grupo">
                             <i data-lucide="trash-2"></i>
                         </button>
-                        <button class="btn-icon" onclick="app.printGroup('${group.id}')" title="Imprimir Grupo">
+                        <button class="btn-icon" onclick="app.downloadGroup('${group.id}')" title="Descargar Reporte">
+                            <i data-lucide="download"></i>
+                        </button>
+                        <button class="btn-icon" onclick="app.printGroup('${group.id}')" title="Imprimir Reporte">
                             <i data-lucide="printer"></i>
                         </button>
-                        <button class="btn-icon" onclick="app.openModal('student', '${group.id}')">
+                        <button class="btn-icon" onclick="app.openModal('student', '${group.id}')" title="Agregar Alumno">
                             <i data-lucide="user-plus"></i>
                         </button>
                     </div>
@@ -548,98 +551,114 @@ const app = {
     },
 
     // Printing Logic
+    // Reporting Logic (Print & Download)
     printStudent() {
         const student = this.findStudent(this.currentStudentId);
-        let html = `
-            <div style="font-family: Arial, sans-serif; padding: 20px;">
-                <h1 style="color: #6366f1;">Historial del Alumno</h1>
-                <p><strong>Nombre:</strong> ${student.name}</p>
-                <p><strong>Grupo:</strong> ${student.groupName}</p>
-                <p><strong>Fecha:</strong> ${new Date().toLocaleDateString()}</p>
-                <hr>
+        const html = this.getStudentReportHTML(student);
+        this.execPrint(html);
+    },
+
+    downloadStudent() {
+        const student = this.findStudent(this.currentStudentId);
+        const html = this.getStudentReportHTML(student);
+        this.execDownload(html, `Reporte_${student.name.replace(/ /g, '_')}.pdf`);
+    },
+
+    printGroup(groupId) {
+        const group = this.data.groups.find(g => g.id === groupId);
+        const html = this.getGroupReportHTML(group);
+        this.execPrint(html);
+    },
+
+    downloadGroup(groupId) {
+        const group = this.data.groups.find(g => g.id === groupId);
+        const html = this.getGroupReportHTML(group);
+        this.execDownload(html, `Reporte_Grupo_${group.name.replace(/ /g, '_')}.pdf`);
+    },
+
+    getStudentReportHTML(student) {
+        return `
+            <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b;">
+                <h1 style="color: #6366f1; margin-bottom: 5px;">Historial del Alumno</h1>
+                <p style="margin: 2px 0;"><strong>Nombre:</strong> ${student.name}</p>
+                <p style="margin: 2px 0;"><strong>Grupo:</strong> ${student.groupName}</p>
+                <p style="margin: 2px 0;"><strong>Fecha:</strong> ${new Date().toLocaleDateString()}</p>
+                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
                 <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
                     <thead>
                         <tr style="background: #f1f5f9;">
-                            <th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Fecha</th>
-                            <th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Actividad</th>
-                            <th style="border: 1px solid #ddd; padding: 12px; text-align: right;">Calificación</th>
+                            <th style="border: 1px solid #cbd5e1; padding: 12px; text-align: left;">Fecha</th>
+                            <th style="border: 1px solid #cbd5e1; padding: 12px; text-align: left;">Actividad</th>
+                            <th style="border: 1px solid #cbd5e1; padding: 12px; text-align: right;">Calificación</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${student.activities.map(act => `
+                        ${(student.activities || []).map(act => `
                             <tr>
-                                <td style="border: 1px solid #ddd; padding: 8px;">${new Date(act.date).toLocaleDateString()}</td>
-                                <td style="border: 1px solid #ddd; padding: 8px;">${act.name}</td>
-                                <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold;">${act.grade}</td>
+                                <td style="border: 1px solid #cbd5e1; padding: 10px;">${new Date(act.date).toLocaleDateString()}</td>
+                                <td style="border: 1px solid #cbd5e1; padding: 10px;">${act.name}</td>
+                                <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: right; font-weight: bold;">${act.grade}</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 </table>
             </div>
         `;
-        this.execPrint(html);
     },
 
-    printGroup(groupId) {
-        const group = this.data.groups.find(g => g.id === groupId);
+    getGroupReportHTML(group) {
         const maxActs = this.getMaxActivitiesForGroup(group);
-
-        // Generate Activity Reference List
         let activityList = [];
         for (let i = 0; i < maxActs; i++) {
-            // Find activity info from any student that has it at this index
-            const sample = group.students.find(s => s.activities[i])?.activities[i];
+            const sample = group.students.find(s => s.activities && s.activities[i])?.activities[i];
             if (sample) {
-                activityList.push({
-                    num: i + 1,
-                    name: sample.name,
-                    date: new Date(sample.date).toLocaleDateString()
-                });
+                activityList.push({ num: i + 1, name: sample.name, date: new Date(sample.date).toLocaleDateString() });
             } else {
                 activityList.push({ num: i + 1, name: `Actividad ${i + 1}`, date: '-' });
             }
         }
 
-        let html = `
-            <div style="font-family: Arial, sans-serif; padding: 20px;">
+        return `
+            <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b;">
                 <h1 style="color: #6366f1; margin: 0 0 5px 0; font-size: 1.8rem;">Reporte de Grupo: ${group.name}</h1>
-                <p style="color: #666; margin-bottom: 30px;">Fecha del reporte: ${new Date().toLocaleDateString()}</p>
+                <p style="color: #64748b; margin-bottom: 30px;">Fecha del reporte: ${new Date().toLocaleDateString()}</p>
                 
-                <h2 style="font-size: 1.1rem; border-bottom: 2px solid #6366f1; padding-bottom: 5px; color: #1e293b; margin-top: 0;">Cuadro de Calificaciones Concentrado</h2>
-                <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.75rem;">
-                    <thead>
-                        <tr style="background: #f1f5f9;">
-                            <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Nombre del Alumno</th>
-                            ${activityList.map(a => `<th style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">Act ${a.num}</th>`).join('')}
-                            <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; background: #e0e7ff; color: #4338ca;">Promedio</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${group.students.map(student => {
+                <h2 style="font-size: 1.1rem; border-bottom: 2px solid #6366f1; padding-bottom: 5px; color: #1e293b; margin-top: 0;">Cuadro de Calificaciones</h2>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.75rem;">
+                        <thead>
+                            <tr style="background: #f8fafc;">
+                                <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Alumno</th>
+                                ${activityList.map(a => `<th style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">Act ${a.num}</th>`).join('')}
+                                <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; background: #e0e7ff; color: #4338ca;">Promedio</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${group.students.map(student => {
             let total = 0;
             const studentGrades = [];
             for (let i = 0; i < maxActs; i++) {
-                const grade = student.activities[i] ? parseFloat(student.activities[i].grade) : 0;
+                const grade = (student.activities && student.activities[i]) ? parseFloat(student.activities[i].grade) : 0;
                 studentGrades.push(grade);
                 total += grade;
             }
             const avg = maxActs > 0 ? (total / maxActs).toFixed(1) : "0.0";
-
             return `
-                                <tr>
-                                    <td style="border: 1px solid #cbd5e1; padding: 8px; font-weight: 600;">${student.name}</td>
-                                    ${studentGrades.map(g => `<td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: ${g === 0 ? '#94a3b8' : '#1e293b'}">${g}</td>`).join('')}
-                                    <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-weight: bold; background: #f8fafc;">${avg}</td>
-                                </tr>
-                            `;
+                                    <tr>
+                                        <td style="border: 1px solid #cbd5e1; padding: 8px; font-weight: 600;">${student.name}</td>
+                                        ${studentGrades.map(g => `<td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: ${g === 0 ? '#94a3b8' : '#1e293b'}">${g}</td>`).join('')}
+                                        <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-weight: bold; background: #f8fafc;">${avg}</td>
+                                    </tr>
+                                `;
         }).join('')}
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
 
                 <h2 style="font-size: 1.1rem; border-bottom: 2px solid #6366f1; padding-bottom: 5px; color: #1e293b; margin-top: 40px;">Lista de Actividades</h2>
                 <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.8rem;">
                     <thead>
-                        <tr style="background: #f1f5f9;">
+                        <tr style="background: #f8fafc;">
                             <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left; width: 50px;">#</th>
                             <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Nombre de la Actividad</th>
                             <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Fecha</th>
@@ -657,7 +676,6 @@ const app = {
                 </table>
             </div>
         `;
-        this.execPrint(html);
     },
 
     execPrint(html) {
@@ -669,6 +687,19 @@ const app = {
             printWindow.print();
             printWindow.close();
         }, 500);
+    },
+
+    execDownload(html, filename) {
+        const element = document.createElement('div');
+        element.innerHTML = html;
+        const opt = {
+            margin: 10,
+            filename: filename,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2 },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(element).save();
     }
 };
 
