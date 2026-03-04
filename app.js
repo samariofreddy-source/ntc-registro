@@ -225,7 +225,7 @@ const app = {
 
     getMaxActivitiesForGroup(group) {
         if (!group.students || group.students.length === 0) return 1;
-        const max = Math.max(...group.students.map(s => s.activities.length));
+        const max = Math.max(...group.students.map(s => (s.activities || []).length));
         return max > 0 ? max : 1; // Default to 1 to avoid division by zero
     },
 
@@ -277,7 +277,7 @@ const app = {
                                         <i data-lucide="edit-3" style="width:12px"></i>
                                     </button>
                                 </div>
-                                <span class="student-meta">${student.activities.length} / ${maxActivities} actividades</span>
+                                <span class="student-meta">${(student.activities || []).length} / ${maxActivities} actividades</span>
                             </div>
                             <div class="student-actions">
                                 <button class="btn-icon btn-nfc admin-only" onclick="app.copyNfcLink('${student.id}')" title="Copiar link para NFC">
@@ -332,7 +332,7 @@ const app = {
 
     renderStudentActivities(student) {
         const list = document.getElementById('activities-list');
-        const count = student.activities.length;
+        const count = (student.activities || []).length;
 
         const group = this.data.groups.find(g => g.id === student.groupId);
         const maxActivities = this.getMaxActivitiesForGroup(group);
@@ -346,7 +346,7 @@ const app = {
             return;
         }
 
-        list.innerHTML = student.activities.map(act => `
+        list.innerHTML = (student.activities || []).map(act => `
             <div class="activity-card">
                 <div class="activity-info">
                     <p class="activity-name">${act.name}</p>
@@ -375,6 +375,7 @@ const app = {
 
         const group = this.data.groups.find(g => g.students.some(s => s.id === this.currentStudentId));
         const student = group.students.find(s => s.id === this.currentStudentId);
+        if (!student.activities) student.activities = [];
 
         student.activities.push({
             id: Date.now().toString(),
@@ -509,6 +510,7 @@ const app = {
 
     editActivity(activityId) {
         const student = this.findStudent(this.currentStudentId);
+        if (!student || !student.activities) return;
         const activity = student.activities.find(a => a.id === activityId);
 
         const newName = prompt('Nombre de la actividad:', activity.name);
@@ -526,6 +528,7 @@ const app = {
     deleteActivity(activityId) {
         if (!confirm('¿Eliminar esta actividad?')) return;
         const student = this.findStudent(this.currentStudentId);
+        if (!student || !student.activities) return;
         student.activities = student.activities.filter(a => a.id !== activityId);
         this.saveData();
         this.updateActivitySuggestions();
