@@ -73,29 +73,33 @@ const app = {
     },
 
     loadData() {
-        // Real-time synchronization with Firebase
         const dataRef = ref(db, 'ntc_data');
         onValue(dataRef, (snapshot) => {
             const val = snapshot.val();
             if (val) {
-                this.data = val;
-                if (!this.data.groups) this.data.groups = [];
+                // Only re-render if data has actually changed to avoid closing alerts/modals
+                const newDataStr = JSON.stringify(val);
+                const oldDataStr = JSON.stringify(this.data);
+
+                if (newDataStr !== oldDataStr) {
+                    this.data = val;
+                    if (!this.data.groups) this.data.groups = [];
+
+                    this.renderAdmin();
+                    this.updateStats();
+
+                    if (this.currentStudentId) {
+                        const student = this.findStudent(this.currentStudentId);
+                        if (student) this.renderStudentActivities(student);
+                    }
+                }
             } else {
-                // Initial fallback to local storage if Firebase is empty
                 const saved = localStorage.getItem('ntc_registro_data');
                 if (saved) {
                     this.data = JSON.parse(saved);
                     if (!this.data.groups) this.data.groups = [];
-                    this.saveData(); // Push local data to Firebase
+                    this.saveData();
                 }
-            }
-            this.renderAdmin();
-            this.updateStats();
-
-            // If we are in student view, refresh it
-            if (this.currentStudentId) {
-                const student = this.findStudent(this.currentStudentId);
-                if (student) this.renderStudentActivities(student);
             }
         });
     },
