@@ -44,7 +44,6 @@ const app = {
     },
 
     verifyPin(pin) {
-        console.log("Verificando PIN:", pin);
         if (pin === this.MASTER_PIN) {
             this.isAdmin = true;
             this.checkAuth();
@@ -54,9 +53,9 @@ const app = {
                 this.renderStudentActivities(student);
             }
             this.closeModal();
-            alert("Acceso concedido");
+            this.showToast("Acceso concedido", "success");
         } else {
-            alert("PIN incorrecto.");
+            this.showToast("PIN incorrecto.", "error");
         }
     },
 
@@ -187,7 +186,7 @@ const app = {
     showStudent(studentId) {
         const student = this.findStudent(studentId);
         if (!student) {
-            alert('Alumno no encontrado');
+            this.showToast('Alumno no encontrado', 'error');
             this.showAdmin();
             return;
         }
@@ -450,7 +449,7 @@ const app = {
             const nameInput = document.getElementById('input-group-name');
             const name = nameInput ? nameInput.value.trim() : '';
             if (!name) {
-                alert("Por favor ingrese un nombre para el grupo.");
+                this.showToast("Por favor ingrese un nombre para el grupo.", "error");
                 return;
             }
 
@@ -468,13 +467,13 @@ const app = {
             const nameInput = document.getElementById('input-student-name');
             const name = nameInput ? nameInput.value.trim() : '';
             if (!name) {
-                alert("Por favor ingrese el nombre del alumno.");
+                this.showToast("Por favor ingrese el nombre del alumno.", "error");
                 return;
             }
 
             const group = this.data.groups.find(g => String(g.id) === String(ctx.targetId));
             if (!group) {
-                alert("Error: No se encontró el grupo seleccionado (" + ctx.targetId + ").");
+                this.showToast("Error: No se encontró el grupo seleccionado.", "error");
                 return;
             }
 
@@ -505,7 +504,7 @@ const app = {
     copyNfcLink(studentId) {
         const url = window.location.origin + window.location.pathname + '#student/' + studentId;
         navigator.clipboard.writeText(url).then(() => {
-            alert('¡Link copiado! Graba este URL en el tag NFC.');
+            this.showToast('¡Link copiado! Graba este URL en el tag NFC.', 'success');
         });
     },
 
@@ -701,6 +700,31 @@ const app = {
             jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
         html2pdf().set(opt).from(element).save();
+    },
+
+    showToast(message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+
+        let icon = 'info';
+        if (type === 'success') icon = 'check-circle';
+        if (type === 'error') icon = 'alert-circle';
+
+        toast.innerHTML = `
+            <i data-lucide="${icon}" style="width:18px;height:18px"></i>
+            <span>${message}</span>
+        `;
+
+        container.appendChild(toast);
+        lucide.createIcons();
+
+        setTimeout(() => {
+            toast.classList.add('fade-out');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
     }
 };
 
