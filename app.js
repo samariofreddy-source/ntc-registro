@@ -56,7 +56,7 @@ const app = {
             this.closeModal();
             alert("Acceso concedido");
         } else {
-            alert("PIN incorrecto. Intente: 1310");
+            alert("PIN incorrecto.");
         }
     },
 
