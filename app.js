@@ -18,6 +18,7 @@ const app = {
     data: {
         groups: []
     },
+    dataLoaded: false,
 
     init() {
         console.log("Iniciando app, Admin status:", this.isAdmin);
@@ -73,6 +74,7 @@ const app = {
         const dataRef = ref(db, 'ntc_data');
         onValue(dataRef, (snapshot) => {
             const val = snapshot.val();
+            this.dataLoaded = true;
             if (val) {
                 // Only re-render if data has actually changed to avoid closing alerts/modals
                 const newDataStr = JSON.stringify(val);
@@ -88,7 +90,9 @@ const app = {
 
                     if (this.currentStudentId) {
                         const student = this.findStudent(this.currentStudentId);
-                        if (student) this.renderStudentActivities(student);
+                        if (student) {
+                            this.renderStudentView(student);
+                        }
                     }
                 }
             } else {
@@ -184,6 +188,14 @@ const app = {
     },
 
     showStudent(studentId) {
+        this.currentStudentId = studentId;
+
+        // If data isn't loaded yet, wait for the listener
+        if (!this.dataLoaded) {
+            console.log("Esperando a que carguen los datos para mostrar alumno:", studentId);
+            return;
+        }
+
         const student = this.findStudent(studentId);
         if (!student) {
             this.showToast('Alumno no encontrado', 'error');
@@ -191,7 +203,10 @@ const app = {
             return;
         }
 
-        this.currentStudentId = studentId;
+        this.renderStudentView(student);
+    },
+
+    renderStudentView(student) {
         document.getElementById('view-admin').classList.remove('active');
         document.getElementById('view-student').classList.add('active');
 
