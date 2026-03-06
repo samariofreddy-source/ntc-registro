@@ -21,7 +21,7 @@ const app = {
     dataLoaded: false,
 
     init() {
-        console.log("NTC Registro v1.5 - Iniciando...");
+        console.log("NTC Registro v1.6 - Iniciando...");
         // Cargar estado de sesión persistente
         this.isAdmin = localStorage.getItem('ntc_admin') === 'true';
         console.log("Iniciando app, Admin status:", this.isAdmin);
@@ -55,7 +55,9 @@ const app = {
             this.renderAdmin();
             if (this.currentStudentId) {
                 const student = this.findStudent(this.currentStudentId);
-                this.renderStudentActivities(student);
+                if (student) this.renderStudentView(student);
+            } else {
+                this.renderAdmin();
             }
             this.closeModal();
             this.showToast("Acceso concedido", "success");
@@ -234,10 +236,10 @@ const app = {
         this.renderStudentView(student);
 
         if (autoAdd) {
+            console.log("Routing: Auto-add requested");
             if (!this.isAdmin) {
                 this.pendingAction = 'add';
                 this.login();
-                this.showToast("Ingresa tu PIN para registrar actividad", "info");
             } else {
                 this.pendingAction = null;
                 this.focusActivityForm();

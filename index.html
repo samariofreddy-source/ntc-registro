@@ -31,10 +31,10 @@
                     <h1>NTC<span>Registro</span></h1>
                 </div>
                 <div class="header-actions">
-                    <button class="btn-secondary not-admin" onclick="appLogin()">
+                    <button class="btn-secondary guest-only" onclick="appLogin()">
                         <i data-lucide="lock"></i>
                     </button>
-                    <button id="btn-logout" class="btn-secondary admin-only" onclick="appLogout()">
+                    <button class="btn-secondary admin-only" onclick="appLogout()">
                         <i data-lucide="unlock"></i>
                     </button>
                     <button id="btn-add-group" class="btn-primary admin-only">
@@ -100,8 +100,11 @@
                     <p id="display-student-group">Grupo</p>
                 </div>
                 <div style="display: flex; gap: 8px;">
-                    <button class="btn-icon not-admin" onclick="appLogin()" title="Desbloquear">
+                    <button class="btn-icon guest-only" onclick="appLogin()" title="Desbloquear">
                         <i data-lucide="lock"></i>
+                    </button>
+                    <button class="btn-icon admin-only" onclick="appLogout()" title="Cerrar Sesión">
+                        <i data-lucide="unlock"></i>
                     </button>
                     <button class="btn-icon" onclick="app.downloadStudent()" title="Descargar Historial">
                         <i data-lucide="download"></i>
@@ -165,9 +168,9 @@
     </div>
 
     <div id="toast-container" class="toast-container"></div>
-    <div style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: var(--text-muted); opacity: 0.5;">v1.5
+    <div style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: var(--text-muted); opacity: 0.5;">v1.6
     </div>
-    <script type="module" src="app.js?v=1.5"></script>
+    <script type="module" src="app.js?v=1.6"></script>
     <script>
         // Lucide will be initialized inside app.init() effectively
     </script>

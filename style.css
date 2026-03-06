@@ -12,22 +12,12 @@ body.is-admin .admin-only.registration-form {
     display: block !important;
 }
 
-body.is-admin .not-admin {
-    display: none !important;
-}
-
-.not-admin {
+/* Elements visible ONLY when NOT logged in */
+.guest-only {
     display: flex !important;
 }
 
-/* Header actions fix */
-.header-actions .btn-secondary.admin-only,
-.header-actions .btn-secondary.not-admin {
-    padding: 10px;
-    border-radius: var(--radius);
-}
-
-body.is-group-isolated #btn-add-group {
+body.is-admin .guest-only {
     display: none !important;
 }
 
