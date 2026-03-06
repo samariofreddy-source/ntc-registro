@@ -21,7 +21,7 @@ const app = {
     dataLoaded: false,
 
     init() {
-        console.log("NTC Registro v1.4 - Iniciando...");
+        console.log("NTC Registro v1.5 - Iniciando...");
         // Cargar estado de sesión persistente
         this.isAdmin = localStorage.getItem('ntc_admin') === 'true';
         console.log("Iniciando app, Admin status:", this.isAdmin);
@@ -213,9 +213,13 @@ const app = {
     showStudent(studentId, autoAdd = false) {
         this.currentStudentId = studentId;
 
+        // Mostrar la vista de alumno inmediatamente (aunque esté vacía) para evitar que se vea el admin
+        document.getElementById('view-admin').classList.remove('active');
+        document.getElementById('view-student').classList.add('active');
+
         // If data isn't loaded yet, wait for the listener
         if (!this.dataLoaded) {
-            console.log("Esperando a que carguen los datos para mostrar alumno:", studentId);
+            console.log("Esperando datos para alumno:", studentId);
             if (autoAdd) this.pendingAction = 'add';
             return;
         }
