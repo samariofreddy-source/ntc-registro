@@ -1,19 +1,13 @@
-/* Security Visibility */
-.admin-only {
+body.is-admin .not-admin {
     display: none !important;
+}
+
+.not-admin {
+    display: flex !important;
 }
 
 body.is-admin .admin-only {
     display: flex !important;
-}
-
-body.is-admin .admin-only.card,
-body.is-admin .admin-only.registration-form {
-    display: block !important;
-}
-
-body.is-admin #btn-login {
-    display: none !important;
 }
 
 body.is-group-isolated #btn-add-group {
