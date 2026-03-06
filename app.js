@@ -21,14 +21,12 @@ const app = {
     dataLoaded: false,
 
     init() {
-        console.log("NTC Registro v1.7 - Iniciando...");
+        console.log("NTC Registro v1.8 - Iniciando...");
         // Cargar estado de sesión persistente
         this.isAdmin = localStorage.getItem('ntc_admin') === 'true';
-        console.log("Iniciando app, Admin status:", this.isAdmin);
-        this.loadData();
         this.bindEvents();
         this.checkAuth();
-        this.checkRoute();
+        this.loadData(); // loadData ahora llamará a checkRoute cuando los datos lleguen
         window.addEventListener('hashchange', () => this.checkRoute());
     },
 
@@ -50,22 +48,13 @@ const app = {
     verifyPin(pin) {
         if (pin === this.MASTER_PIN) {
             this.isAdmin = true;
-            localStorage.setItem('ntc_admin', 'true'); // Persistir sesión
+            localStorage.setItem('ntc_admin', 'true');
             this.checkAuth();
-            this.renderAdmin();
-            if (this.currentStudentId) {
-                const student = this.findStudent(this.currentStudentId);
-                if (student) this.renderStudentView(student);
-            } else {
-                this.renderAdmin();
-            }
             this.closeModal();
             this.showToast("Acceso concedido", "success");
 
-            if (this.pendingAction === 'add') {
-                this.focusActivityForm();
-                this.pendingAction = null;
-            }
+            // Refrescar la vista actual para aplicar los cambios de admin
+            this.checkRoute();
         } else {
             this.showToast("PIN incorrecto.", "error");
         }
@@ -86,8 +75,6 @@ const app = {
         const dataRef = ref(db, 'ntc_data');
         onValue(dataRef, (snapshot) => {
             const val = snapshot.val();
-            console.log("Datos recibidos de Firebase");
-
             if (val) {
                 this.data = val;
                 if (!this.data.groups) this.data.groups = [];
@@ -101,25 +88,8 @@ const app = {
 
             this.dataLoaded = true;
             this.updateStats();
-
-            // Si hay un alumno seleccionado, lo renderizamos con los nuevos datos
-            if (this.currentStudentId) {
-                const student = this.findStudent(this.currentStudentId);
-                if (student) {
-                    this.renderStudentView(student);
-                    if (this.pendingAction === 'add') {
-                        if (this.isAdmin) {
-                            this.focusActivityForm();
-                            this.pendingAction = null;
-                        } else {
-                            this.login();
-                        }
-                    }
-                }
-            } else {
-                // Si estamos en la raíz, renderizamos el admin
-                this.renderAdmin();
-            }
+            // Siempre llamamos a checkRoute para que la URL mande sobre la vista
+            this.checkRoute();
         });
     },
 
@@ -168,6 +138,8 @@ const app = {
 
     checkRoute() {
         const hash = window.location.hash;
+        console.log("Router: Cambiando a", hash || 'home');
+
         if (hash.startsWith('#student/')) {
             const parts = hash.split('/');
             const studentId = parts[1];
@@ -208,32 +180,33 @@ const app = {
     },
 
     showStudent(studentId, autoAdd = false) {
-        console.log("NFC: Mostrando alumno", studentId, "AutoAdd:", autoAdd);
         this.currentStudentId = studentId;
 
-        // Cambiar de vista inmediatamente
+        // 1. Cambiar a la vista de alumno inmediatamente
         document.getElementById('view-admin').classList.remove('active');
         document.getElementById('view-student').classList.add('active');
 
-        // Si los datos no han cargado, guardamos la intención
+        // 2. Si los datos no han cargado, no podemos hacer más
         if (!this.dataLoaded) {
-            console.log("NFC: Esperando datos...");
+            console.log("showStudent: Esperando datos...");
+            document.getElementById('display-student-name').textContent = "Cargando...";
             if (autoAdd) this.pendingAction = 'add';
             return;
         }
 
+        // 3. Buscar al alumno
         const student = this.findStudent(studentId);
         if (!student) {
-            console.error("NFC: Alumno no encontrado");
+            console.error("showStudent: No se encontró al alumno", studentId);
             this.showToast('Alumno no encontrado', 'error');
-            // No regresamos al admin automáticamente para no confundir,
-            // pero limpiamos el estado.
             return;
         }
 
+        // 4. Renderizar su información
         this.renderStudentView(student);
 
-        if (autoAdd) {
+        // 5. Manejar acción automática (Agregar Actividad)
+        if (autoAdd || this.pendingAction === 'add') {
             if (!this.isAdmin) {
                 this.pendingAction = 'add';
                 this.login();
