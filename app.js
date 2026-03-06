@@ -21,7 +21,7 @@ const app = {
     dataLoaded: false,
 
     init() {
-        console.log("NTC Registro v1.2 - Iniciando...");
+        console.log("NTC Registro v1.3 - Iniciando...");
         // Cargar estado de sesión persistente
         this.isAdmin = localStorage.getItem('ntc_admin') === 'true';
         console.log("Iniciando app, Admin status:", this.isAdmin);
