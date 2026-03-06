@@ -21,6 +21,9 @@ const app = {
     dataLoaded: false,
 
     init() {
+        console.log("NTC Registro v1.2 - Iniciando...");
+        // Cargar estado de sesión persistente
+        this.isAdmin = localStorage.getItem('ntc_admin') === 'true';
         console.log("Iniciando app, Admin status:", this.isAdmin);
         this.loadData();
         this.bindEvents();
@@ -47,6 +50,7 @@ const app = {
     verifyPin(pin) {
         if (pin === this.MASTER_PIN) {
             this.isAdmin = true;
+            localStorage.setItem('ntc_admin', 'true'); // Persistir sesión
             this.checkAuth();
             this.renderAdmin();
             if (this.currentStudentId) {
@@ -55,6 +59,11 @@ const app = {
             }
             this.closeModal();
             this.showToast("Acceso concedido", "success");
+
+            if (this.pendingAction === 'add') {
+                this.focusActivityForm();
+                this.pendingAction = null;
+            }
         } else {
             this.showToast("PIN incorrecto.", "error");
         }
@@ -62,6 +71,7 @@ const app = {
 
     logout() {
         this.isAdmin = false;
+        localStorage.removeItem('ntc_admin'); // Limpiar persistencia
         this.checkAuth();
         this.renderAdmin();
         if (this.currentStudentId) {
@@ -92,6 +102,14 @@ const app = {
                         const student = this.findStudent(this.currentStudentId);
                         if (student) {
                             this.renderStudentView(student);
+                            if (this.pendingAction === 'add') {
+                                if (this.isAdmin) {
+                                    this.focusActivityForm();
+                                    this.pendingAction = null;
+                                } else {
+                                    this.login();
+                                }
+                            }
                         }
                     }
                 }
@@ -149,11 +167,15 @@ const app = {
         });
     },
 
+    pendingAction: null,
+
     checkRoute() {
         const hash = window.location.hash;
         if (hash.startsWith('#student/')) {
-            const studentId = hash.split('/')[1];
-            this.showStudent(studentId);
+            const parts = hash.split('/');
+            const studentId = parts[1];
+            const action = parts[2]; // e.g., 'add'
+            this.showStudent(studentId, action === 'add');
         } else if (hash.startsWith('#group/')) {
             const groupId = hash.split('/')[1];
             this.isolateGroup(groupId);
@@ -164,6 +186,7 @@ const app = {
 
     showAdmin() {
         this.currentGroupId = null;
+        this.pendingAction = null;
         document.getElementById('view-student').classList.remove('active');
         document.getElementById('view-admin').classList.add('active');
         document.getElementById('group-navigation').style.display = 'none';
@@ -187,12 +210,13 @@ const app = {
         this.renderAdmin();
     },
 
-    showStudent(studentId) {
+    showStudent(studentId, autoAdd = false) {
         this.currentStudentId = studentId;
 
         // If data isn't loaded yet, wait for the listener
         if (!this.dataLoaded) {
             console.log("Esperando a que carguen los datos para mostrar alumno:", studentId);
+            if (autoAdd) this.pendingAction = 'add';
             return;
         }
 
@@ -204,6 +228,33 @@ const app = {
         }
 
         this.renderStudentView(student);
+
+        if (autoAdd) {
+            if (!this.isAdmin) {
+                this.pendingAction = 'add';
+                this.login();
+                this.showToast("Ingresa tu PIN para registrar actividad", "info");
+            } else {
+                this.pendingAction = null;
+                this.focusActivityForm();
+            }
+        }
+    },
+
+    focusActivityForm() {
+        // Pequeño delay para asegurar que el DOM está listo y la animación terminó
+        setTimeout(() => {
+            const form = document.querySelector('.registration-form');
+            const input = document.getElementById('activity-name');
+            if (form && input) {
+                form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                input.focus();
+                // Opcional: vibración ligera para feedback táctil si el navegador lo permite
+                if (window.navigator && window.navigator.vibrate) {
+                    window.navigator.vibrate(50);
+                }
+            }
+        }, 500);
     },
 
     renderStudentView(student) {
@@ -517,9 +568,17 @@ const app = {
     },
 
     copyNfcLink(studentId) {
-        const url = window.location.origin + window.location.pathname + '#student/' + studentId;
-        navigator.clipboard.writeText(url).then(() => {
-            this.showToast('¡Link copiado! Graba este URL en el tag NFC.', 'success');
+        // Obtenemos la URL base sin el hash actual
+        const baseUrl = window.location.href.split('#')[0];
+        const nfcUrl = `${baseUrl}#student/${studentId}/add`;
+
+        console.log("Copiando link NFC:", nfcUrl);
+
+        navigator.clipboard.writeText(nfcUrl).then(() => {
+            this.showToast('¡Link de Registro Rápido copiado!', 'success');
+        }).catch(err => {
+            console.error('Error al copiar:', err);
+            alert('En esta red/navegador no se pudo copiar automáticamente. Copia esto manualmente: ' + nfcUrl);
         });
     },
 
