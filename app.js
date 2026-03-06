@@ -21,7 +21,7 @@ const app = {
     dataLoaded: false,
 
     init() {
-        console.log("NTC Registro v2.0 - Iniciando...");
+        console.log("NTC Registro v2.1 - Iniciando...");
         // Cargar estado de sesión persistente
         this.isAdmin = localStorage.getItem('ntc_admin') === 'true';
         this.bindEvents();
@@ -119,10 +119,17 @@ const app = {
     },
 
     bindEvents() {
-        document.getElementById('btn-add-group').onclick = () => this.openModal('group');
-        document.getElementById('btn-login').onclick = () => this.login();
-        document.getElementById('btn-logout').onclick = () => this.logout();
-        document.getElementById('form-add-activity').onsubmit = (e) => this.handleActivitySubmit(e);
+        const btnAddGroup = document.getElementById('btn-add-group');
+        if (btnAddGroup) btnAddGroup.onclick = () => this.openModal('group');
+
+        const btnLogin = document.getElementById('btn-login');
+        if (btnLogin) btnLogin.onclick = () => this.login();
+
+        const btnLogout = document.getElementById('btn-logout');
+        if (btnLogout) btnLogout.onclick = () => this.logout();
+
+        const formActivity = document.getElementById('form-add-activity');
+        if (formActivity) formActivity.onsubmit = (e) => this.handleActivitySubmit(e);
 
         // Modal buttons
         const btnConfirm = document.getElementById('modal-confirm');

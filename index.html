@@ -31,10 +31,10 @@
                     <h1>NTC<span>Registro</span></h1>
                 </div>
                 <div class="header-actions">
-                    <button class="btn-secondary guest-only" onclick="appLogin()">
+                    <button id="btn-login" class="btn-secondary guest-only" onclick="appLogin()">
                         <i data-lucide="lock"></i>
                     </button>
-                    <button class="btn-secondary admin-only" onclick="appLogout()">
+                    <button id="btn-logout" class="btn-secondary admin-only" onclick="appLogout()">
                         <i data-lucide="unlock"></i>
                     </button>
                     <button id="btn-add-group" class="btn-primary admin-only">
@@ -178,8 +178,8 @@
     <div id="toast-container" class="toast-container"></div>
     <div
         style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: var(--text-muted); opacity: 0.5; z-index: 9999;">
-        v2.0</div>
-    <script type="module" src="app.js?v=2.0"></script>
+        v2.1</div>
+    <script type="module" src="app.js?v=2.1"></script>
 </body>
 
 </html>
