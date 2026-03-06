@@ -7,8 +7,11 @@ body.is-admin .admin-only {
     display: flex !important;
 }
 
-body.is-admin .admin-only.card,
-body.is-admin .admin-only.registration-form {
+/* Fix for containers that should be block instead of flex */
+body.is-admin div.admin-only,
+body.is-admin section.admin-only,
+body.is-admin .card.admin-only,
+body.is-admin .registration-form.admin-only {
     display: block !important;
 }
 

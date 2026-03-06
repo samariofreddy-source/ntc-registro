@@ -21,7 +21,7 @@ const app = {
     dataLoaded: false,
 
     init() {
-        console.log("NTC Registro v1.6 - Iniciando...");
+        console.log("NTC Registro v1.7 - Iniciando...");
         // Cargar estado de sesión persistente
         this.isAdmin = localStorage.getItem('ntc_admin') === 'true';
         console.log("Iniciando app, Admin status:", this.isAdmin);
@@ -86,44 +86,39 @@ const app = {
         const dataRef = ref(db, 'ntc_data');
         onValue(dataRef, (snapshot) => {
             const val = snapshot.val();
-            this.dataLoaded = true;
+            console.log("Datos recibidos de Firebase");
+
             if (val) {
-                // Only re-render if data has actually changed to avoid closing alerts/modals
-                const newDataStr = JSON.stringify(val);
-                const oldDataStr = JSON.stringify(this.data);
-
-                if (newDataStr !== oldDataStr || !this.renderedOnce) {
-                    this.data = val;
-                    if (!this.data.groups) this.data.groups = [];
-
-                    this.renderAdmin();
-                    this.updateStats();
-                    this.renderedOnce = true;
-
-                    if (this.currentStudentId) {
-                        const student = this.findStudent(this.currentStudentId);
-                        if (student) {
-                            this.renderStudentView(student);
-                            if (this.pendingAction === 'add') {
-                                if (this.isAdmin) {
-                                    this.focusActivityForm();
-                                    this.pendingAction = null;
-                                } else {
-                                    this.login();
-                                }
-                            }
-                        }
-                    }
-                }
+                this.data = val;
+                if (!this.data.groups) this.data.groups = [];
             } else {
                 const saved = localStorage.getItem('ntc_registro_data');
                 if (saved) {
                     this.data = JSON.parse(saved);
                     if (!this.data.groups) this.data.groups = [];
-                    this.renderAdmin();
-                    this.updateStats();
-                    this.saveData();
                 }
+            }
+
+            this.dataLoaded = true;
+            this.updateStats();
+
+            // Si hay un alumno seleccionado, lo renderizamos con los nuevos datos
+            if (this.currentStudentId) {
+                const student = this.findStudent(this.currentStudentId);
+                if (student) {
+                    this.renderStudentView(student);
+                    if (this.pendingAction === 'add') {
+                        if (this.isAdmin) {
+                            this.focusActivityForm();
+                            this.pendingAction = null;
+                        } else {
+                            this.login();
+                        }
+                    }
+                }
+            } else {
+                // Si estamos en la raíz, renderizamos el admin
+                this.renderAdmin();
             }
         });
     },
@@ -213,30 +208,32 @@ const app = {
     },
 
     showStudent(studentId, autoAdd = false) {
+        console.log("NFC: Mostrando alumno", studentId, "AutoAdd:", autoAdd);
         this.currentStudentId = studentId;
 
-        // Mostrar la vista de alumno inmediatamente (aunque esté vacía) para evitar que se vea el admin
+        // Cambiar de vista inmediatamente
         document.getElementById('view-admin').classList.remove('active');
         document.getElementById('view-student').classList.add('active');
 
-        // If data isn't loaded yet, wait for the listener
+        // Si los datos no han cargado, guardamos la intención
         if (!this.dataLoaded) {
-            console.log("Esperando datos para alumno:", studentId);
+            console.log("NFC: Esperando datos...");
             if (autoAdd) this.pendingAction = 'add';
             return;
         }
 
         const student = this.findStudent(studentId);
         if (!student) {
+            console.error("NFC: Alumno no encontrado");
             this.showToast('Alumno no encontrado', 'error');
-            this.showAdmin();
+            // No regresamos al admin automáticamente para no confundir,
+            // pero limpiamos el estado.
             return;
         }
 
         this.renderStudentView(student);
 
         if (autoAdd) {
-            console.log("Routing: Auto-add requested");
             if (!this.isAdmin) {
                 this.pendingAction = 'add';
                 this.login();
