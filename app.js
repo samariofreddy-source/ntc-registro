@@ -21,7 +21,7 @@ const app = {
     dataLoaded: false,
 
     init() {
-        console.log("NTC Registro v1.9 - Iniciando...");
+        console.log("NTC Registro v2.0 - Iniciando...");
         // Cargar estado de sesión persistente
         this.isAdmin = localStorage.getItem('ntc_admin') === 'true';
         this.bindEvents();
@@ -268,11 +268,15 @@ const app = {
 
     findStudent(id) {
         if (!id) return null;
-        // Sanitizar el ID eliminando posibles duplicados del carácter #
-        const cleanId = id.replace(/#/g, '');
+        const searchId = id.toString().trim();
+        const cleanId = searchId.replace(/#/g, '');
+
         for (const group of this.data.groups || []) {
             if (!group.students) continue;
-            const student = group.students.find(s => s.id === cleanId || s.id === id);
+            const student = group.students.find(s => {
+                const sId = s.id.toString();
+                return sId === searchId || sId === cleanId;
+            });
             if (student) return { ...student, groupName: group.name, groupId: group.id };
         }
         return null;

@@ -1,4 +1,4 @@
-/* Security Visibility */
+/* Security Visibility v2.0 */
 .admin-only {
     display: none !important;
 }
@@ -22,6 +22,19 @@ body.is-admin .registration-form.admin-only {
 
 body.is-admin .guest-only {
     display: none !important;
+}
+
+/* Ensure ALL icons have a default size if not specified */
+[data-lucide],
+i svg {
+    width: 20px;
+    height: 20px;
+    display: inline-block;
+}
+
+.btn-icon [data-lucide] {
+    width: 20px;
+    height: 20px;
 }
 
 .header-actions {
