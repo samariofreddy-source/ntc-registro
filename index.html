@@ -167,14 +167,19 @@
         </div>
     </div>
 
+    <script>
+        // Funciones puente para acceder al objeto 'app' que es módulo
+        window.appLogin = () => { if (window.app) window.app.login(); else console.error("App no lista"); };
+        window.appLogout = () => { if (window.app) window.app.logout(); };
+        window.closeModal = () => { if (window.app) window.app.closeModal(); };
+        window.handleModalConfirm = () => { if (window.app) window.app.handleModalConfirm(); };
+        window.handleSearch = (q) => { if (window.app) window.app.handleSearch(q); };
+    </script>
     <div id="toast-container" class="toast-container"></div>
     <div
         style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: var(--text-muted); opacity: 0.5; z-index: 9999;">
-        v1.8</div>
-    <script type="module" src="app.js?v=1.8"></script>
-    <script>
-        // Lucide will be initialized inside app.init() effectively
-    </script>
+        v1.9</div>
+    <script type="module" src="app.js?v=1.9"></script>
 </body>
 
 </html>

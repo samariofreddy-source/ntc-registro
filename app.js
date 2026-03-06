@@ -21,13 +21,15 @@ const app = {
     dataLoaded: false,
 
     init() {
-        console.log("NTC Registro v1.8 - Iniciando...");
+        console.log("NTC Registro v1.9 - Iniciando...");
         // Cargar estado de sesión persistente
         this.isAdmin = localStorage.getItem('ntc_admin') === 'true';
         this.bindEvents();
         this.checkAuth();
         this.loadData(); // loadData ahora llamará a checkRoute cuando los datos lleguen
+        this.checkRoute(); // Llamar a checkRoute de inmediato
         window.addEventListener('hashchange', () => this.checkRoute());
+        lucide.createIcons();
     },
 
     isAdmin: false,
@@ -88,7 +90,10 @@ const app = {
 
             this.dataLoaded = true;
             this.updateStats();
-            // Siempre llamamos a checkRoute para que la URL mande sobre la vista
+
+            console.log("Datos cargados. Alumnos encontrados:", this.data.groups.reduce((acc, g) => acc + (g.students?.length || 0), 0));
+
+            // Re-checar la ruta para mostrar al alumno ahora que hay datos
             this.checkRoute();
         });
     },
@@ -242,6 +247,7 @@ const app = {
 
         this.updateActivitySuggestions();
         this.renderStudentActivities(student);
+        lucide.createIcons(); // Asegurar que los botones de candado se vean
     },
 
     updateActivitySuggestions() {
@@ -261,9 +267,12 @@ const app = {
     },
 
     findStudent(id) {
-        for (const group of this.data.groups) {
+        if (!id) return null;
+        // Sanitizar el ID eliminando posibles duplicados del carácter #
+        const cleanId = id.replace(/#/g, '');
+        for (const group of this.data.groups || []) {
             if (!group.students) continue;
-            const student = group.students.find(s => s.id === id);
+            const student = group.students.find(s => s.id === cleanId || s.id === id);
             if (student) return { ...student, groupName: group.name, groupId: group.id };
         }
         return null;
