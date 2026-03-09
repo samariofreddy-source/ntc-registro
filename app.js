@@ -79,7 +79,7 @@ const app = {
         onValue(dataRef, (snapshot) => {
             const val = snapshot.val();
             if (val) {
-                this.data = val;
+                this.data = this.normalizeData(val);
                 if (!this.data.groups) this.data.groups = [];
             } else {
                 const saved = localStorage.getItem('ntc_registro_data');
@@ -91,12 +91,28 @@ const app = {
 
             this.dataLoaded = true;
             this.updateStats();
-
-            console.log("Datos cargados de Firebase.");
-
-            // Re-checar la ruta para mostrar al alumno ahora que hay datos
+            console.log("Datos cargados y normalizados.");
             this.checkRoute();
         });
+    },
+
+    normalizeData(data) {
+        if (!data || typeof data !== 'object') return data;
+
+        // If it's a group or has specific array-like properties, ensure they are arrays
+        if (data.groups) {
+            data.groups = Array.isArray(data.groups) ? data.groups : Object.values(data.groups);
+            data.groups.forEach(g => {
+                if (g.students) {
+                    g.students = Array.isArray(g.students) ? g.students : Object.values(g.students);
+                    g.students.forEach(s => {
+                        if (s.activities) s.activities = Array.isArray(s.activities) ? s.activities : Object.values(s.activities);
+                        if (s.reports) s.reports = Array.isArray(s.reports) ? s.reports : Object.values(s.reports);
+                    });
+                }
+            });
+        }
+        return data;
     },
 
     saveData() {
@@ -927,10 +943,11 @@ const app = {
         const maxActs = this.getMaxActivitiesForGroup(group);
         let activityList = [];
         for (let i = 0; i < maxActs; i++) {
-            const sample = students.find(s => {
+            const studentWithAct = students.find(s => {
                 const acts = this.getActivitiesArray(s);
                 return acts[i];
-            })?.activities[i];
+            });
+            const sample = studentWithAct ? this.getActivitiesArray(studentWithAct)[i] : null;
 
             if (sample) {
                 activityList.push({ num: i + 1, name: sample.name, date: new Date(sample.date).toLocaleDateString() });
@@ -1020,28 +1037,34 @@ const app = {
 
     execDownload(html, filename) {
         const element = document.createElement('div');
-        element.style.width = '210mm'; // Standard A4 width
-        element.style.margin = '0 auto';
+        element.style.position = 'fixed';
+        element.style.left = '-9999px';
+        element.style.top = '0';
+        element.style.width = '210mm';
         element.innerHTML = html;
+        document.body.appendChild(element);
+
+        // Si hay muchas columnas (reporte de grupo con > 8 acts), usar landscape
+        const isLandscape = html.includes('Act 8') || html.includes('Act 9') || html.includes('Act 10');
 
         const opt = {
-            margin: [10, 5, 10, 5], // Top, Left, Bottom, Right
+            margin: [10, 5, 10, 5],
             filename: filename,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
                 scale: 2,
                 useCORS: true,
                 logging: false,
-                letterRendering: true
+                letterRendering: true,
+                scrollY: 0
             },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: isLandscape ? 'landscape' : 'portrait' },
             pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
         };
 
-        // This ensures the element is rendered properly by html2pdf
-        html2pdf().set(opt).from(element).toPdf().get('pdf').then(function (pdf) {
-            // Optional: additional pdf manipulation
-        }).save();
+        html2pdf().set(opt).from(element).save().then(() => {
+            document.body.removeChild(element);
+        });
     },
 
     showToast(message, type = 'info') {
