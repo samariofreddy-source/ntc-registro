@@ -22,8 +22,8 @@ const app = {
 
     init() {
         console.log("NTC Registro v2.2 - Iniciando...");
-        // Cargar estado de sesión persistente
-        this.isAdmin = localStorage.getItem('ntc_admin') === 'true';
+        // Desactivada la persistencia por seguridad. Se pedirá PIN cada vez que se abra la app.
+        this.isAdmin = false;
         this.bindEvents();
         this.checkAuth();
         this.loadData(); // loadData ahora llamará a checkRoute cuando los datos lleguen
@@ -50,7 +50,8 @@ const app = {
     verifyPin(pin) {
         if (pin === this.MASTER_PIN) {
             this.isAdmin = true;
-            localStorage.setItem('ntc_admin', 'true');
+            // No guardamos en localStorage para evitar que la sesión sea permanente 
+            // y obligar a poner el pin si se refresca la página.
             this.checkAuth();
             this.closeModal();
             this.showToast("Acceso concedido", "success");
@@ -460,7 +461,14 @@ const app = {
     },
 
     handleActivitySubmit(e) {
-        e.preventDefault();
+        if (e) e.preventDefault();
+
+        if (!this.isAdmin) {
+            this.showToast("Debe iniciar sesión para realizar esta acción.", "error");
+            this.login();
+            return;
+        }
+
         const nameInput = document.getElementById('activity-name');
         const gradeInput = document.getElementById('activity-grade');
         const name = nameInput.value;
@@ -486,6 +494,11 @@ const app = {
 
     handleReportSubmit(e) {
         e.preventDefault();
+        if (!this.isAdmin) {
+            this.showToast("Debe iniciar sesión para realizar esta acción.", "error");
+            this.login();
+            return;
+        }
         const checkboxes = document.querySelectorAll('input[name="report-type"]:checked');
         const reasonInput = document.getElementById('indisciplina-reason');
 
@@ -561,6 +574,10 @@ const app = {
     },
 
     deleteReport(reportId) {
+        if (!this.isAdmin) {
+            this.showToast("No tiene permisos para eliminar.", "error");
+            return;
+        }
         if (!confirm('¿Eliminar este reporte?')) return;
         const student = this.findStudent(this.currentStudentId);
         if (!student || !student.reports) return;
@@ -611,6 +628,11 @@ const app = {
     },
 
     handleModalConfirm() {
+        if (!this.isAdmin && this.modalContext?.type !== 'login') {
+            this.showToast("Acceso denegado", "error");
+            this.closeModal();
+            return;
+        }
         const ctx = this.modalContext;
         if (!ctx) return this.closeModal();
 
@@ -688,6 +710,7 @@ const app = {
     },
 
     deleteGroup(groupId) {
+        if (!this.isAdmin) return;
         if (!confirm('¿Seguro que quieres eliminar este grupo y todos sus alumnos?')) return;
         this.data.groups = this.data.groups.filter(g => g.id !== groupId);
         this.saveData();
@@ -695,6 +718,10 @@ const app = {
     },
 
     editActivity(activityId) {
+        if (!this.isAdmin) {
+            this.showToast("No tiene permisos para editar.", "error");
+            return;
+        }
         const student = this.findStudent(this.currentStudentId);
         if (!student || !student.activities) return;
         const activity = student.activities.find(a => a.id === activityId);
@@ -712,6 +739,10 @@ const app = {
     },
 
     deleteActivity(activityId) {
+        if (!this.isAdmin) {
+            this.showToast("No tiene permisos para eliminar.", "error");
+            return;
+        }
         if (!confirm('¿Eliminar esta actividad?')) return;
         const student = this.findStudent(this.currentStudentId);
         if (!student || !student.activities) return;
@@ -722,6 +753,7 @@ const app = {
     },
 
     deleteStudent(groupId, studentId) {
+        if (!this.isAdmin) return;
         if (!confirm('¿Seguro que quieres eliminar este alumno?')) return;
         const group = this.data.groups.find(g => g.id === groupId);
         group.students = group.students.filter(s => s.id !== studentId);
