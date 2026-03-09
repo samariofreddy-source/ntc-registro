@@ -1054,26 +1054,30 @@ const app = {
         this.showToast("Generando reporte...", "info");
         const isLandscape = html.includes('Act 8') || html.includes('Act 9') || html.includes('Act 10');
 
+        // Reset scroll position for the capture and wrap HTML
+        const content = `<div style="position: relative; top: 0; left: 0; background: white; width: 100%; border: 1px solid transparent;">${html}</div>`;
+
         const opt = {
-            margin: [10, 10, 10, 10],
+            margin: [10, 5, 10, 5],
             filename: filename,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
                 scale: 2,
                 useCORS: true,
                 letterRendering: true,
+                scrollY: 0,
+                scrollX: 0,
                 logging: false
             },
             jsPDF: { unit: 'mm', format: 'a4', orientation: isLandscape ? 'landscape' : 'portrait' },
             pagebreak: { mode: ['css', 'legacy'] }
         };
 
-        // Generar desde el string directamente es mucho más estable
-        html2pdf().set(opt).from(html).save().then(() => {
+        html2pdf().set(opt).from(content).save().then(() => {
             this.showToast("¡Listo!", "success");
         }).catch(err => {
             console.error("PDF Fail:", err);
-            alert("No se pudo descargar el archivo directamente. Como solución rápida: use el botón 'Imprimir' y elija 'Guardar como PDF' en su dispositivo.");
+            alert("No se pudo descargar directamente. Use 'Imprimir' y elija 'Guardar como PDF' como alternativa.");
         });
     },
 
