@@ -314,7 +314,7 @@ const app = {
     },
 
     getMaxActivitiesForGroup(group) {
-        if (!group.students || group.students.length === 0) return 1;
+        if (!group || !group.students || group.students.length === 0) return 1;
         const max = Math.max(...group.students.map(s => (s.activities || []).length));
         return max > 0 ? max : 1; // Default to 1 to avoid division by zero
     },
@@ -425,10 +425,11 @@ const app = {
     },
 
     renderStudentActivities(student) {
+        if (!student) return;
         const list = document.getElementById('activities-list');
         const count = (student.activities || []).length;
 
-        const group = this.data.groups.find(g => g.id === student.groupId);
+        const group = this.data.groups.find(g => String(g.id) === String(student.groupId));
         const maxActivities = this.getMaxActivitiesForGroup(group);
         const percent = Math.min((count / maxActivities) * 100, 100);
 
@@ -474,8 +475,20 @@ const app = {
         const name = nameInput.value;
         const grade = gradeInput.value;
 
-        const group = this.data.groups.find(g => g.students.some(s => s.id === this.currentStudentId));
-        const student = group.students.find(s => s.id === this.currentStudentId);
+        const studentRef = this.findStudent(this.currentStudentId);
+        if (!studentRef) {
+            this.showToast("No se pudo encontrar el alumno para el registro", "error");
+            return;
+        }
+
+        const group = this.data.groups.find(g => String(g.id) === String(studentRef.groupId));
+        const student = group?.students.find(s => String(s.id) === String(studentRef.id));
+
+        if (!student) {
+            this.showToast("Error al encontrar datos del alumno", "error");
+            return;
+        }
+
         if (!student.activities) student.activities = [];
 
         student.activities.push({
@@ -507,8 +520,13 @@ const app = {
             return;
         }
 
-        const group = this.data.groups.find(g => g.students.some(s => s.id === this.currentStudentId));
-        const student = group.students.find(s => s.id === this.currentStudentId);
+        const studentRef = this.findStudent(this.currentStudentId);
+        if (!studentRef) return;
+
+        const group = this.data.groups.find(g => String(g.id) === String(studentRef.groupId));
+        const student = group?.students.find(s => String(s.id) === String(studentRef.id));
+
+        if (!student) return;
         if (!student.reports) student.reports = [];
 
         checkboxes.forEach(cb => {
@@ -546,6 +564,7 @@ const app = {
     },
 
     renderStudentReports(student) {
+        if (!student) return;
         const list = document.getElementById('reports-list');
         const count = (student.reports || []).length;
 
