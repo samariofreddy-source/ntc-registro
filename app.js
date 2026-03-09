@@ -92,7 +92,7 @@ const app = {
             this.dataLoaded = true;
             this.updateStats();
 
-            console.log("Datos cargados. Alumnos encontrados:", this.data.groups.reduce((acc, g) => acc + (g.students?.length || 0), 0));
+            console.log("Datos cargados de Firebase.");
 
             // Re-checar la ruta para mostrar al alumno ahora que hay datos
             this.checkRoute();
@@ -299,16 +299,22 @@ const app = {
 
     findStudent(id) {
         if (!id) return null;
-        const searchId = id.toString().trim();
-        const cleanId = searchId.replace(/#/g, '');
+        const searchId = String(id).trim().replace(/#/g, '');
 
         for (const group of this.data.groups || []) {
             if (!group.students) continue;
-            const student = group.students.find(s => {
-                const sId = s.id.toString();
-                return sId === searchId || sId === cleanId;
+
+            // Manejar si students es un objeto o array
+            const studentsList = Array.isArray(group.students) ? group.students : Object.values(group.students);
+
+            const student = studentsList.find(s => {
+                const sId = String(s.id).replace(/#/g, '');
+                return sId === searchId;
             });
-            if (student) return { ...student, groupName: group.name, groupId: group.id };
+
+            if (student) {
+                return { ...student, groupName: group.name, groupId: group.id };
+            }
         }
         return null;
     },
