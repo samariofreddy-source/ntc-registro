@@ -864,13 +864,16 @@ const app = {
     },
 
     getStudentReportHTML(student) {
+        const activities = this.getActivitiesArray(student);
+        const reports = this.getReportsArray(student);
+
         return `
-            <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b;">
+            <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b; max-width: 800px; margin: auto;">
                 <h1 style="color: #6366f1; margin-bottom: 5px;">Historial del Alumno</h1>
                 <p style="margin: 2px 0;"><strong>Nombre:</strong> ${student.name}</p>
-                <p style="margin: 2px 0;"><strong>Grupo:</strong> ${student.groupName}</p>
+                <p style="margin: 2px 0;"><strong>Grupo:</strong> ${student.groupName || '-'}</p>
                 <p style="margin: 2px 0;"><strong>Fecha:</strong> ${new Date().toLocaleDateString()}</p>
-                <p style="margin: 2px 0;"><strong>Total Reportes:</strong> ${student.reports?.length || 0}</p>
+                <p style="margin: 2px 0;"><strong>Total Reportes:</strong> ${reports.length}</p>
                 <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
                 
                 <h2 style="font-size: 1.2rem; color: #1e293b; margin-top: 0;">Actividades</h2>
@@ -883,7 +886,7 @@ const app = {
                         </tr>
                     </thead>
                     <tbody>
-                        ${(student.activities || []).map(act => `
+                        ${activities.map(act => `
                             <tr>
                                 <td style="border: 1px solid #cbd5e1; padding: 10px;">${new Date(act.date).toLocaleDateString()}</td>
                                 <td style="border: 1px solid #cbd5e1; padding: 10px;">${act.name}</td>
@@ -893,7 +896,8 @@ const app = {
                     </tbody>
                 </table>
 
-                ${(student.reports && student.reports.length > 0) ? `
+                ${(reports.length > 0) ? `
+                <div style="page-break-before: always; height: 1px;"></div>
                 <h2 style="font-size: 1.2rem; color: #ef4444; margin-top: 30px;">Historial de Reportes</h2>
                 <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
                     <thead>
@@ -904,7 +908,7 @@ const app = {
                         </tr>
                     </thead>
                     <tbody>
-                        ${student.reports.map(rep => `
+                        ${reports.map(rep => `
                             <tr>
                                 <td style="border: 1px solid #fee2e2; padding: 10px;">${new Date(rep.date).toLocaleDateString()}</td>
                                 <td style="border: 1px solid #fee2e2; padding: 10px; color: #ef4444; font-weight: bold;">${rep.label}</td>
@@ -919,10 +923,15 @@ const app = {
     },
 
     getGroupReportHTML(group) {
+        const students = this.getStudentsArray(group);
         const maxActs = this.getMaxActivitiesForGroup(group);
         let activityList = [];
         for (let i = 0; i < maxActs; i++) {
-            const sample = group.students.find(s => s.activities && s.activities[i])?.activities[i];
+            const sample = students.find(s => {
+                const acts = this.getActivitiesArray(s);
+                return acts[i];
+            })?.activities[i];
+
             if (sample) {
                 activityList.push({ num: i + 1, name: sample.name, date: new Date(sample.date).toLocaleDateString() });
             } else {
@@ -931,12 +940,12 @@ const app = {
         }
 
         return `
-            <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b;">
+            <div style="font-family: Arial, sans-serif; padding: 20px; color: #1e293b; width: 100%; box-sizing: border-box;">
                 <h1 style="color: #6366f1; margin: 0 0 5px 0; font-size: 1.8rem;">Reporte de Grupo: ${group.name}</h1>
-                <p style="color: #64748b; margin-bottom: 30px;">Fecha del reporte: ${new Date().toLocaleDateString()}</p>
+                <p style="color: #64748b; margin-bottom: 25px;">Fecha del reporte: ${new Date().toLocaleDateString()}</p>
                 
                 <h2 style="font-size: 1.1rem; border-bottom: 2px solid #6366f1; padding-bottom: 5px; color: #1e293b; margin-top: 0;">Cuadro de Calificaciones</h2>
-                <div style="overflow-x: auto;">
+                <div style="overflow-x: auto; margin-bottom: 30px;">
                     <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.75rem;">
                         <thead>
                             <tr style="background: #f8fafc;">
@@ -947,16 +956,19 @@ const app = {
                             </tr>
                         </thead>
                         <tbody>
-                            ${group.students.map(student => {
+                            ${students.map(student => {
             let total = 0;
+            const acts = this.getActivitiesArray(student);
+            const reports = this.getReportsArray(student);
             const studentGrades = [];
+
             for (let i = 0; i < maxActs; i++) {
-                const grade = (student.activities && student.activities[i]) ? parseFloat(student.activities[i].grade) : 0;
-                studentGrades.push(grade);
-                total += grade;
+                const gradeValue = acts[i] ? parseFloat(acts[i].grade) : 0;
+                studentGrades.push(gradeValue);
+                total += gradeValue;
             }
             const avg = maxActs > 0 ? (total / maxActs).toFixed(1) : "0.0";
-            const reportCount = student.reports?.length || 0;
+            const reportCount = reports.length;
             return `
                                     <tr>
                                         <td style="border: 1px solid #cbd5e1; padding: 8px; font-weight: 600;">${student.name}</td>
@@ -970,25 +982,27 @@ const app = {
                     </table>
                 </div>
 
-                <h2 style="font-size: 1.1rem; border-bottom: 2px solid #6366f1; padding-bottom: 5px; color: #1e293b; margin-top: 40px;">Lista de Actividades</h2>
-                <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.8rem;">
-                    <thead>
-                        <tr style="background: #f8fafc;">
-                            <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left; width: 50px;">#</th>
-                            <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Nombre de la Actividad</th>
-                            <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Fecha</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${activityList.map(a => `
-                            <tr>
-                                <td style="border: 1px solid #cbd5e1; padding: 8px; font-weight: 600;">${a.num}</td>
-                                <td style="border: 1px solid #cbd5e1; padding: 8px;">${a.name}</td>
-                                <td style="border: 1px solid #cbd5e1; padding: 8px; color: #64748b;">${a.date}</td>
+                <div style="page-break-before: auto; break-inside: avoid;">
+                    <h2 style="font-size: 1.1rem; border-bottom: 2px solid #6366f1; padding-bottom: 5px; color: #1e293b; margin-top: 20px;">Lista de Actividades</h2>
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.8rem;">
+                        <thead>
+                            <tr style="background: #f8fafc;">
+                                <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left; width: 50px;">#</th>
+                                <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Nombre de la Actividad</th>
+                                <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Fecha</th>
                             </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            ${activityList.map(a => `
+                                <tr>
+                                    <td style="border: 1px solid #cbd5e1; padding: 8px; font-weight: 600;">${a.num}</td>
+                                    <td style="border: 1px solid #cbd5e1; padding: 8px;">${a.name}</td>
+                                    <td style="border: 1px solid #cbd5e1; padding: 8px; color: #64748b;">${a.date}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         `;
     },
@@ -1006,15 +1020,28 @@ const app = {
 
     execDownload(html, filename) {
         const element = document.createElement('div');
+        element.style.width = '210mm'; // Standard A4 width
+        element.style.margin = '0 auto';
         element.innerHTML = html;
+
         const opt = {
-            margin: 10,
+            margin: [10, 5, 10, 5], // Top, Left, Bottom, Right
             filename: filename,
             image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2 },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            html2canvas: {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                letterRendering: true
+            },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
         };
-        html2pdf().set(opt).from(element).save();
+
+        // This ensures the element is rendered properly by html2pdf
+        html2pdf().set(opt).from(element).toPdf().get('pdf').then(function (pdf) {
+            // Optional: additional pdf manipulation
+        }).save();
     },
 
     showToast(message, type = 'info') {
