@@ -885,24 +885,23 @@ const app = {
 
         return `
             <style>
-                .pdf-container { font-family: Arial, sans-serif; padding: 20px; color: #1e293b; max-width: 800px; margin: auto; }
-                table { width: 100%; border-collapse: collapse; margin-block: 10px; page-break-inside: auto; }
-                tr { page-break-inside: avoid; page-break-after: auto; }
-                th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; }
+                .pdf-body { font-family: Arial, sans-serif; padding: 10mm; color: #1e293b; }
+                table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px; }
+                th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; font-size: 11pt; }
                 th { background: #f1f5f9; }
-                .report-title { color: #6366f1; margin-bottom: 5px; font-size: 1.8rem; }
-                .danger-title { color: #ef4444; margin-top: 30px; font-size: 1.2rem; }
+                .report-title { color: #6366f1; margin-bottom: 5px; font-size: 22pt; font-weight: bold; }
+                .danger-title { color: #ef4444; margin-top: 20px; font-size: 14pt; font-weight: bold; }
                 .page-break { page-break-before: always; }
             </style>
-            <div class="pdf-container">
+            <div class="pdf-body">
                 <h1 class="report-title">Historial del Alumno</h1>
-                <p style="margin: 2px 0;"><strong>Nombre:</strong> ${student.name}</p>
-                <p style="margin: 2px 0;"><strong>Grupo:</strong> ${student.groupName || '-'}</p>
-                <p style="margin: 2px 0;"><strong>Fecha:</strong> ${new Date().toLocaleDateString()}</p>
-                <p style="margin: 2px 0;"><strong>Total Reportes:</strong> ${reports.length}</p>
-                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+                <p><strong>Alumno:</strong> ${student.name}</p>
+                <p><strong>Grupo:</strong> ${student.groupName || '-'}</p>
+                <p><strong>Fecha:</strong> ${new Date().toLocaleDateString()}</p>
+                <p><strong>Reportes Totales:</strong> ${reports.length}</p>
+                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;">
                 
-                <h2 style="font-size: 1.2rem; margin-top: 0;">Actividades</h2>
+                <h2 style="font-size: 14pt; margin-top: 0;">Actividades</h2>
                 <table>
                     <thead>
                         <tr>
@@ -925,20 +924,20 @@ const app = {
                 ${(reports.length > 0) ? `
                 <div class="page-break"></div>
                 <h2 class="danger-title">Historial de Reportes</h2>
-                <table style="border-color: #fee2e2;">
+                <table>
                     <thead>
                         <tr style="background: #fef2f2;">
-                            <th style="border-color: #fee2e2;">Fecha</th>
-                            <th style="border-color: #fee2e2;">Tipo</th>
-                            <th style="border-color: #fee2e2;">Motivo / Comentario</th>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th>Motivo / Comentario</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${reports.map(rep => `
                             <tr>
-                                <td style="border-color: #fee2e2;">${new Date(rep.date).toLocaleDateString()}</td>
-                                <td style="border-color: #fee2e2; color: #ef4444; font-weight: bold;">${rep.label}</td>
-                                <td style="border-color: #fee2e2; font-style: italic;">${rep.reason || '-'}</td>
+                                <td>${new Date(rep.date).toLocaleDateString()}</td>
+                                <td style="color: #ef4444; font-weight: bold;">${rep.label}</td>
+                                <td style="font-style: italic;">${rep.reason || '-'}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -968,18 +967,17 @@ const app = {
 
         return `
             <style>
-                .pdf-container { font-family: Arial, sans-serif; padding: 20px; color: #1e293b; width: 100%; box-sizing: border-box; }
-                table { width: 100%; border-collapse: collapse; margin-top: 10px; page-break-inside: auto; }
-                tr { page-break-inside: avoid; page-break-after: auto; }
-                th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: center; }
+                .pdf-body { font-family: Arial, sans-serif; padding: 10mm; color: #1e293b; width: 100%; box-sizing: border-box; }
+                table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                th, td { border: 1px solid #cbd5e1; padding: 6px; text-align: center; font-size: 9pt; }
                 .text-left { text-align: left; }
-                .heading { color: #6366f1; margin: 0 0 5px 0; font-size: 1.8rem; }
-                .sub-heading { font-size: 1.1rem; border-bottom: 2px solid #6366f1; padding-bottom: 5px; color: #1e293b; margin-top: 20px; }
+                .heading { color: #6366f1; margin: 0 0 5px 0; font-size: 20pt; }
+                .sub-heading { font-size: 13pt; border-bottom: 2px solid #6366f1; padding-bottom: 3px; color: #1e293b; margin-top: 15px; }
                 .page-break { page-break-before: always; }
             </style>
-            <div class="pdf-container">
+            <div class="pdf-body">
                 <h1 class="heading">Reporte de Grupo: ${group.name}</h1>
-                <p style="color: #64748b; margin-bottom: 25px;">Fecha del reporte: ${new Date().toLocaleDateString()}</p>
+                <p style="color: #64748b; margin-bottom: 20px;">Fecha: ${new Date().toLocaleDateString()}</p>
                 
                 <h2 class="sub-heading">Cuadro de Calificaciones</h2>
                 <table>
@@ -987,8 +985,8 @@ const app = {
                         <tr style="background: #f8fafc;">
                             <th class="text-left">Alumno</th>
                             ${activityList.map(a => `<th>Act ${a.num}</th>`).join('')}
-                            <th style="background: #e0e7ff; color: #4338ca;">Prom</th>
-                            <th style="background: #fee2e2; color: #b91c1c;">Rep</th>
+                            <th style="background: #e0e7ff;">Prom</th>
+                            <th style="background: #fee2e2;">Rep</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1022,7 +1020,7 @@ const app = {
                 <table>
                     <thead>
                         <tr style="background: #f8fafc;">
-                            <th style="width: 50px;">#</th>
+                            <th style="width: 40px;">#</th>
                             <th class="text-left">Nombre de la Actividad</th>
                             <th class="text-left">Fecha</th>
                         </tr>
@@ -1054,35 +1052,43 @@ const app = {
 
     execDownload(html, filename) {
         const element = document.createElement('div');
-        element.style.position = 'absolute';
-        element.style.left = '-9999px';
+        // Usar una técnica de ocultamiento más segura que no rompa el renderizado
+        element.style.position = 'fixed';
         element.style.top = '0';
-        // Ajustar ancho real para que html2canvas no se confunda
-        const isLandscape = html.includes('Act 8') || html.includes('Act 9') || html.includes('Act 10');
-        element.style.width = isLandscape ? '297mm' : '210mm';
+        element.style.left = '0';
+        element.style.width = '210mm';
+        element.style.zIndex = '-1000';
+        element.style.opacity = '0.01';
+        element.style.pointerEvents = 'none';
 
         element.innerHTML = html;
         document.body.appendChild(element);
 
+        const isLandscape = html.includes('Act 8') || html.includes('Act 9') || html.includes('Act 10');
+        if (isLandscape) element.style.width = '297mm';
+
         const opt = {
-            margin: [0, 0, 0, 0], // El margen lo maneja el PDF-container
+            margin: 0,
             filename: filename,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
                 scale: 2,
                 useCORS: true,
-                letterRendering: true,
-                scrollY: 0,
-                height: element.scrollHeight, // CAPTURAR TODO EL ALTO
-                windowHeight: element.scrollHeight
+                letterRendering: true
             },
             jsPDF: { unit: 'mm', format: 'a4', orientation: isLandscape ? 'landscape' : 'portrait' },
             pagebreak: { mode: ['css', 'legacy'] }
         };
 
-        html2pdf().set(opt).from(element).save().then(() => {
-            document.body.removeChild(element);
-        });
+        // Esperar un momento corto para que el navegador "dibuje" el HTML antes de capturarlo
+        setTimeout(() => {
+            html2pdf().set(opt).from(element).save().then(() => {
+                document.body.removeChild(element);
+            }).catch(err => {
+                console.error("PDF Error:", err);
+                this.showToast("Error al generar PDF", "error");
+            });
+        }, 150);
     },
 
     showToast(message, type = 'info') {
