@@ -114,9 +114,25 @@ const app = {
         document.getElementById('stat-groups').textContent = this.data.groups.length;
         let totalStudents = 0;
         this.data.groups.forEach(g => {
-            if (g.students) totalStudents += g.students.length;
+            const students = this.getStudentsArray(g);
+            totalStudents += students.length;
         });
         document.getElementById('stat-students').textContent = totalStudents;
+    },
+
+    getStudentsArray(group) {
+        if (!group || !group.students) return [];
+        return Array.isArray(group.students) ? group.students : Object.values(group.students);
+    },
+
+    getActivitiesArray(student) {
+        if (!student || !student.activities) return [];
+        return Array.isArray(student.activities) ? student.activities : Object.values(student.activities);
+    },
+
+    getReportsArray(student) {
+        if (!student || !student.reports) return [];
+        return Array.isArray(student.reports) ? student.reports : Object.values(student.reports);
     },
 
     bindEvents() {
@@ -284,8 +300,10 @@ const app = {
     updateActivitySuggestions() {
         const suggestions = new Set();
         this.data.groups.forEach(group => {
-            group.students.forEach(student => {
-                student.activities.forEach(act => {
+            const students = this.getStudentsArray(group);
+            students.forEach(student => {
+                const activities = this.getActivitiesArray(student);
+                activities.forEach(act => {
                     suggestions.add(act.name);
                 });
             });
@@ -302,15 +320,8 @@ const app = {
         const searchId = String(id).trim().replace(/#/g, '');
 
         for (const group of this.data.groups || []) {
-            if (!group.students) continue;
-
-            // Manejar si students es un objeto o array
-            const studentsList = Array.isArray(group.students) ? group.students : Object.values(group.students);
-
-            const student = studentsList.find(s => {
-                const sId = String(s.id).replace(/#/g, '');
-                return sId === searchId;
-            });
+            const students = this.getStudentsArray(group);
+            const student = students.find(s => String(s.id).replace(/#/g, '') === searchId);
 
             if (student) {
                 return { ...student, groupName: group.name, groupId: group.id };
@@ -320,9 +331,10 @@ const app = {
     },
 
     getMaxActivitiesForGroup(group) {
-        if (!group || !group.students || group.students.length === 0) return 1;
-        const max = Math.max(...group.students.map(s => (s.activities || []).length));
-        return max > 0 ? max : 1; // Default to 1 to avoid division by zero
+        const students = this.getStudentsArray(group);
+        if (students.length === 0) return 1;
+        const max = Math.max(...students.map(s => this.getActivitiesArray(s).length));
+        return max > 0 ? max : 1;
     },
 
     renderAdmin() {
@@ -341,6 +353,8 @@ const app = {
 
         container.innerHTML = groupsToRender.map(group => {
             const maxActivities = this.getMaxActivitiesForGroup(group);
+            const students = this.getStudentsArray(group);
+
             return `
             <div class="card">
                 <div class="group-header">
@@ -366,18 +380,18 @@ const app = {
                     </div>
                 </div>
                 <div class="students-list">
-                    ${(!group.students || group.students.length === 0) ? '<p class="empty-state">Sin alumnos</p>' :
-                    group.students.map(student => `
+                    ${students.length === 0 ? '<p class="empty-state">Sin alumnos</p>' :
+                    students.map(student => `
                         <div class="student-item">
                             <div class="student-info">
                                 <div style="display:flex; align-items:center; gap:8px">
                                     <span class="student-name">${student.name}</span>
-                                    ${(student.reports && student.reports.length > 0) ? `<span class="student-reports-badge">${student.reports.length} Rep.</span>` : ''}
+                                    ${(this.getReportsArray(student).length > 0) ? `<span class="student-reports-badge">${this.getReportsArray(student).length} Rep.</span>` : ''}
                                     <button class="btn-icon admin-only" onclick="app.openModal('student', '${group.id}', '${student.name}', '${student.id}')" title="Editar Alumno">
                                         <i data-lucide="edit-3" style="width:12px"></i>
                                     </button>
                                 </div>
-                                <span class="student-meta">${(student.activities || []).length} / ${maxActivities} actividades</span>
+                                <span class="student-meta">${this.getActivitiesArray(student).length} / ${maxActivities} actividades</span>
                             </div>
                             <div class="student-actions">
                                 <button class="btn-icon btn-nfc admin-only" onclick="app.copyNfcLink('${student.id}')" title="Copiar link para NFC">
@@ -408,8 +422,8 @@ const app = {
 
         const matches = [];
         this.data.groups.forEach(group => {
-            if (!group.students) return;
-            group.students.forEach(student => {
+            const students = this.getStudentsArray(group);
+            students.forEach(student => {
                 if (student.name.toLowerCase().includes(query.toLowerCase())) {
                     matches.push({ ...student, groupName: group.name });
                 }
@@ -433,7 +447,8 @@ const app = {
     renderStudentActivities(student) {
         if (!student) return;
         const list = document.getElementById('activities-list');
-        const count = (student.activities || []).length;
+        const activities = this.getActivitiesArray(student);
+        const count = activities.length;
 
         const group = this.data.groups.find(g => String(g.id) === String(student.groupId));
         const maxActivities = this.getMaxActivitiesForGroup(group);
@@ -447,7 +462,7 @@ const app = {
             return;
         }
 
-        list.innerHTML = (student.activities || []).map(act => `
+        list.innerHTML = activities.map(act => `
             <div class="activity-card">
                 <div class="activity-info">
                     <p class="activity-name">${act.name}</p>
@@ -488,7 +503,8 @@ const app = {
         }
 
         const group = this.data.groups.find(g => String(g.id) === String(studentRef.groupId));
-        const student = group?.students.find(s => String(s.id) === String(studentRef.id));
+        const students = this.getStudentsArray(group);
+        const student = students.find(s => String(s.id) === String(studentRef.id));
 
         if (!student) {
             this.showToast("Error al encontrar datos del alumno", "error");
@@ -497,12 +513,15 @@ const app = {
 
         if (!student.activities) student.activities = [];
 
-        student.activities.push({
+        // Ensure it's an array before pushing
+        let activities = this.getActivitiesArray(student);
+        activities.push({
             id: Date.now().toString(),
             name,
             grade,
             date: new Date().toISOString()
         });
+        student.activities = activities;
 
         this.saveData();
         this.updateActivitySuggestions();
@@ -512,7 +531,7 @@ const app = {
     },
 
     handleReportSubmit(e) {
-        e.preventDefault();
+        if (e) e.preventDefault();
         if (!this.isAdmin) {
             this.showToast("Debe iniciar sesión para realizar esta acción.", "error");
             this.login();
@@ -530,10 +549,14 @@ const app = {
         if (!studentRef) return;
 
         const group = this.data.groups.find(g => String(g.id) === String(studentRef.groupId));
-        const student = group?.students.find(s => String(s.id) === String(studentRef.id));
+        const students = this.getStudentsArray(group);
+        const student = students.find(s => String(s.id) === String(studentRef.id));
 
         if (!student) return;
         if (!student.reports) student.reports = [];
+
+        // Ensure it's an array before pushing
+        let reports = this.getReportsArray(student);
 
         checkboxes.forEach(cb => {
             let label = "";
@@ -549,7 +572,7 @@ const app = {
                     break;
             }
 
-            student.reports.push({
+            reports.push({
                 id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
                 type: cb.value,
                 label: label,
@@ -558,6 +581,7 @@ const app = {
             });
         });
 
+        student.reports = reports;
         this.saveData();
         this.renderStudentReports(student);
 
@@ -572,7 +596,8 @@ const app = {
     renderStudentReports(student) {
         if (!student) return;
         const list = document.getElementById('reports-list');
-        const count = (student.reports || []).length;
+        const reports = this.getReportsArray(student);
+        const count = reports.length;
 
         document.getElementById('reports-total-text').textContent = `${count} Reportes`;
 
@@ -581,7 +606,7 @@ const app = {
             return;
         }
 
-        list.innerHTML = (student.reports || []).map(rep => `
+        list.innerHTML = reports.map(rep => `
             <div class="report-card">
                 <div class="report-info">
                     <span class="report-type">${rep.label}</span>
@@ -604,11 +629,20 @@ const app = {
             return;
         }
         if (!confirm('¿Eliminar este reporte?')) return;
-        const student = this.findStudent(this.currentStudentId);
-        if (!student || !student.reports) return;
-        student.reports = student.reports.filter(r => r.id !== reportId);
-        this.saveData();
-        this.renderStudentReports(student);
+
+        const studentRef = this.findStudent(this.currentStudentId);
+        if (!studentRef) return;
+
+        const group = this.data.groups.find(g => String(g.id) === String(studentRef.groupId));
+        const students = this.getStudentsArray(group);
+        const student = students.find(s => String(s.id) === String(studentRef.id));
+
+        if (student && student.reports) {
+            const reportsList = Array.isArray(student.reports) ? student.reports : Object.values(student.reports);
+            student.reports = reportsList.filter(r => r.id !== reportId);
+            this.saveData();
+            this.renderStudentReports(student);
+        }
     },
 
     // Modal Logic
@@ -698,9 +732,11 @@ const app = {
             if (!group.students) group.students = [];
 
             if (ctx.studentId) {
-                const student = group.students.find(s => String(s.id) === String(ctx.studentId));
+                const students = this.getStudentsArray(group);
+                const student = students.find(s => String(s.id) === String(ctx.studentId));
                 if (student) student.name = name;
             } else {
+                if (!Array.isArray(group.students)) group.students = this.getStudentsArray(group);
                 group.students.push({
                     id: Math.random().toString(36).substr(2, 9),
                     name: name,
@@ -747,9 +783,16 @@ const app = {
             this.showToast("No tiene permisos para editar.", "error");
             return;
         }
-        const student = this.findStudent(this.currentStudentId);
-        if (!student || !student.activities) return;
-        const activity = student.activities.find(a => a.id === activityId);
+        const studentRef = this.findStudent(this.currentStudentId);
+        if (!studentRef) return;
+
+        const group = this.data.groups.find(g => String(g.id) === String(studentRef.groupId));
+        const students = this.getStudentsArray(group);
+        const student = students.find(s => String(s.id) === String(studentRef.id));
+        const activities = this.getActivitiesArray(student);
+        const activity = activities.find(a => a.id === activityId);
+
+        if (!activity) return;
 
         const newName = prompt('Nombre de la actividad:', activity.name);
         if (newName === null) return;
@@ -760,7 +803,7 @@ const app = {
         activity.grade = newGrade;
         this.saveData();
         this.updateActivitySuggestions();
-        this.renderStudentActivities(student);
+        this.renderStudentActivities({ ...student, groupName: group.name, groupId: group.id });
     },
 
     deleteActivity(activityId) {
@@ -769,12 +812,20 @@ const app = {
             return;
         }
         if (!confirm('¿Eliminar esta actividad?')) return;
-        const student = this.findStudent(this.currentStudentId);
-        if (!student || !student.activities) return;
-        student.activities = student.activities.filter(a => a.id !== activityId);
-        this.saveData();
-        this.updateActivitySuggestions();
-        this.renderStudentActivities(student);
+        const studentRef = this.findStudent(this.currentStudentId);
+        if (!studentRef) return;
+
+        const group = this.data.groups.find(g => String(g.id) === String(studentRef.groupId));
+        const students = this.getStudentsArray(group);
+        const student = students.find(s => String(s.id) === String(studentRef.id));
+
+        if (student && student.activities) {
+            const activitiesList = Array.isArray(student.activities) ? student.activities : Object.values(student.activities);
+            student.activities = activitiesList.filter(a => a.id !== activityId);
+            this.saveData();
+            this.updateActivitySuggestions();
+            this.renderStudentActivities({ ...student, groupName: group.name, groupId: group.id });
+        }
     },
 
     deleteStudent(groupId, studentId) {
