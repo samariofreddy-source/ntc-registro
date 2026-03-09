@@ -115,36 +115,105 @@
                 </div>
             </header>
 
-            <div class="registration-form card admin-only">
-                <h3>Registrar Actividad</h3>
-                <form id="form-add-activity">
-                    <div class="form-group">
-                        <label for="activity-name">Nombre de la Actividad</label>
-                        <input type="text" id="activity-name" placeholder="Ej. Tarea 1, Examen..."
-                            list="activities-suggestions" required>
-                        <datalist id="activities-suggestions"></datalist>
-                    </div>
-                    <div class="form-group">
-                        <label for="activity-grade">Calificación</label>
-                        <input type="number" id="activity-grade" min="0" max="100" placeholder="0-100" required>
-                    </div>
-                    <button type="submit" class="btn-submit">Guardar Registro</button>
-                </form>
+            <div class="tabs-container admin-only">
+                <button class="tab-btn active" onclick="app.switchTab('activities')">
+                    <i data-lucide="list-checks"></i> Actividades
+                </button>
+                <button class="tab-btn" onclick="app.switchTab('reports')">
+                    <i data-lucide="alert-triangle"></i> Reportes
+                </button>
             </div>
 
-            <div class="activities-summary">
-                <div class="summary-header">
-                    <h3>Progreso de Actividades</h3>
-                    <div class="progress-badge">
-                        <span id="progress-text">0/5</span>
-                    </div>
-                </div>
-                <div class="progress-bar-container">
-                    <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+            <div id="tab-content-activities" class="tab-content active">
+                <div class="registration-form card admin-only">
+                    <h3>Registrar Actividad</h3>
+                    <form id="form-add-activity">
+                        <div class="form-group">
+                            <label for="activity-name">Nombre de la Actividad</label>
+                            <input type="text" id="activity-name" placeholder="Ej. Tarea 1, Examen..."
+                                list="activities-suggestions" required>
+                            <datalist id="activities-suggestions"></datalist>
+                        </div>
+                        <div class="form-group">
+                            <label for="activity-grade">Calificación</label>
+                            <input type="number" id="activity-grade" min="0" max="100" placeholder="0-100" required>
+                        </div>
+                        <button type="submit" class="btn-submit">Guardar Registro</button>
+                    </form>
                 </div>
 
-                <div class="activities-list" id="activities-list">
-                    <!-- Activities will be rendered here -->
+                <div class="activities-summary">
+                    <div class="summary-header">
+                        <h3>Progreso de Actividades</h3>
+                        <div class="progress-badge">
+                            <span id="progress-text">0/5</span>
+                        </div>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+                    </div>
+
+                    <div class="activities-list" id="activities-list">
+                        <!-- Activities will be rendered here -->
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-content-reports" class="tab-content">
+                <div class="registration-form card admin-only">
+                    <h3>Asignar Reporte</h3>
+                    <form id="form-add-report">
+                        <div class="reports-grid">
+                            <label class="report-option">
+                                <input type="checkbox" name="report-type" value="falta_libro">
+                                <span class="report-box">
+                                    <i data-lucide="book"></i>
+                                    Falta de libro
+                                </span>
+                            </label>
+                            <label class="report-option">
+                                <input type="checkbox" name="report-type" value="falta_tarea">
+                                <span class="report-box">
+                                    <i data-lucide="edit-3"></i>
+                                    Falta de tarea
+                                </span>
+                            </label>
+                            <label class="report-option">
+                                <input type="checkbox" name="report-type" value="falta_usb">
+                                <span class="report-box">
+                                    <i data-lucide="usb"></i>
+                                    Falta de USB
+                                </span>
+                            </label>
+                            <label class="report-option">
+                                <input type="checkbox" name="report-type" value="indisciplina"
+                                    onchange="document.getElementById('indisciplina-reason-group').style.display = this.checked ? 'block' : 'none'">
+                                <span class="report-box">
+                                    <i data-lucide="user-x"></i>
+                                    Indisciplina
+                                </span>
+                            </label>
+                        </div>
+                        <div id="indisciplina-reason-group" class="form-group" style="display: none; margin-top: 15px;">
+                            <label for="indisciplina-reason">¿Por qué de la indisciplina?</label>
+                            <textarea id="indisciplina-reason" placeholder="Describa el motivo..." rows="2"
+                                style="width:100%; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); padding:12px; border-radius:8px; color:white; outline:none; font-family:inherit;"></textarea>
+                        </div>
+                        <button type="submit" class="btn-submit" style="background: var(--danger);">Guardar
+                            Reporte</button>
+                    </form>
+                </div>
+
+                <div class="activities-summary">
+                    <div class="summary-header">
+                        <h3>Historial de Reportes</h3>
+                        <div class="progress-badge" style="background: rgba(239, 68, 68, 0.2); color: var(--danger);">
+                            <span id="reports-total-text">0 Reportes</span>
+                        </div>
+                    </div>
+                    <div class="activities-list" id="reports-list">
+                        <!-- Reports will be rendered here -->
+                    </div>
                 </div>
             </div>
 

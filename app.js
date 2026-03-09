@@ -131,6 +131,9 @@ const app = {
         const formActivity = document.getElementById('form-add-activity');
         if (formActivity) formActivity.onsubmit = (e) => this.handleActivitySubmit(e);
 
+        const formReport = document.getElementById('form-add-report');
+        if (formReport) formReport.onsubmit = (e) => this.handleReportSubmit(e);
+
         // Modal buttons
         const btnConfirm = document.getElementById('modal-confirm');
         if (btnConfirm) btnConfirm.onclick = () => this.handleModalConfirm();
@@ -217,7 +220,10 @@ const app = {
         // 4. Renderizar su información
         this.renderStudentView(student);
 
-        // 5. Manejar acción automática (Agregar Actividad)
+        // 5. Resetear a la pestaña de actividades por defecto
+        this.switchTab('activities');
+
+        // 6. Manejar acción automática (Agregar Actividad)
         if (autoAdd || this.pendingAction === 'add') {
             if (!this.isAdmin) {
                 this.pendingAction = 'add';
@@ -254,7 +260,24 @@ const app = {
 
         this.updateActivitySuggestions();
         this.renderStudentActivities(student);
+        this.renderStudentReports(student);
         lucide.createIcons(); // Asegurar que los botones de candado se vean
+    },
+
+    switchTab(tabName) {
+        // Actualizar botones
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.getAttribute('onclick').includes(`'${tabName}'`)) {
+                btn.classList.add('active');
+            }
+        });
+
+        // Actualizar contenido
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.classList.remove('active');
+        });
+        document.getElementById(`tab-content-${tabName}`).classList.add('active');
     },
 
     updateActivitySuggestions() {
@@ -342,6 +365,7 @@ const app = {
                             <div class="student-info">
                                 <div style="display:flex; align-items:center; gap:8px">
                                     <span class="student-name">${student.name}</span>
+                                    ${(student.reports && student.reports.length > 0) ? `<span class="student-reports-badge">${student.reports.length} Rep.</span>` : ''}
                                     <button class="btn-icon admin-only" onclick="app.openModal('student', '${group.id}', '${student.name}', '${student.id}')" title="Editar Alumno">
                                         <i data-lucide="edit-3" style="width:12px"></i>
                                     </button>
@@ -458,6 +482,91 @@ const app = {
         this.renderStudentActivities({ ...student, groupName: group.name, groupId: group.id });
         nameInput.value = '';
         gradeInput.value = '';
+    },
+
+    handleReportSubmit(e) {
+        e.preventDefault();
+        const checkboxes = document.querySelectorAll('input[name="report-type"]:checked');
+        const reasonInput = document.getElementById('indisciplina-reason');
+
+        if (checkboxes.length === 0) {
+            this.showToast("Seleccione al menos un tipo de reporte.", "error");
+            return;
+        }
+
+        const group = this.data.groups.find(g => g.students.some(s => s.id === this.currentStudentId));
+        const student = group.students.find(s => s.id === this.currentStudentId);
+        if (!student.reports) student.reports = [];
+
+        checkboxes.forEach(cb => {
+            let label = "";
+            let reason = "";
+
+            switch (cb.value) {
+                case 'falta_libro': label = "Falta de libro"; break;
+                case 'falta_tarea': label = "Falta de tarea"; break;
+                case 'falta_usb': label = "Falta de USB"; break;
+                case 'indisciplina':
+                    label = "Indisciplina";
+                    reason = reasonInput.value.trim();
+                    break;
+            }
+
+            student.reports.push({
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                type: cb.value,
+                label: label,
+                reason: reason,
+                date: new Date().toISOString()
+            });
+        });
+
+        this.saveData();
+        this.renderStudentReports(student);
+
+        // Reset form
+        checkboxes.forEach(cb => cb.checked = false);
+        reasonInput.value = '';
+        document.getElementById('indisciplina-reason-group').style.display = 'none';
+
+        this.showToast("Reporte(s) guardado(s)", "success");
+    },
+
+    renderStudentReports(student) {
+        const list = document.getElementById('reports-list');
+        const count = (student.reports || []).length;
+
+        document.getElementById('reports-total-text').textContent = `${count} Reportes`;
+
+        if (count === 0) {
+            list.innerHTML = `<p class="empty-state">No hay reportes registrados.</p>`;
+            return;
+        }
+
+        list.innerHTML = (student.reports || []).map(rep => `
+            <div class="report-card">
+                <div class="report-info">
+                    <span class="report-type">${rep.label}</span>
+                    <span class="student-meta">${new Date(rep.date).toLocaleDateString()}</span>
+                    ${rep.reason ? `<p class="report-reason">"${rep.reason}"</p>` : ''}
+                </div>
+                <div class="activity-actions">
+                    <button class="btn-icon danger admin-only" onclick="app.deleteReport('${rep.id}')" title="Eliminar">
+                        <i data-lucide="trash-2" style="width:16px"></i>
+                    </button>
+                </div>
+            </div>
+        `).reverse().join('');
+        lucide.createIcons();
+    },
+
+    deleteReport(reportId) {
+        if (!confirm('¿Eliminar este reporte?')) return;
+        const student = this.findStudent(this.currentStudentId);
+        if (!student || !student.reports) return;
+        student.reports = student.reports.filter(r => r.id !== reportId);
+        this.saveData();
+        this.renderStudentReports(student);
     },
 
     // Modal Logic
@@ -653,8 +762,11 @@ const app = {
                 <p style="margin: 2px 0;"><strong>Nombre:</strong> ${student.name}</p>
                 <p style="margin: 2px 0;"><strong>Grupo:</strong> ${student.groupName}</p>
                 <p style="margin: 2px 0;"><strong>Fecha:</strong> ${new Date().toLocaleDateString()}</p>
+                <p style="margin: 2px 0;"><strong>Total Reportes:</strong> ${student.reports?.length || 0}</p>
                 <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 20px 0;">
-                <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                
+                <h2 style="font-size: 1.2rem; color: #1e293b; margin-top: 0;">Actividades</h2>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
                     <thead>
                         <tr style="background: #f1f5f9;">
                             <th style="border: 1px solid #cbd5e1; padding: 12px; text-align: left;">Fecha</th>
@@ -672,6 +784,28 @@ const app = {
                         `).join('')}
                     </tbody>
                 </table>
+
+                ${(student.reports && student.reports.length > 0) ? `
+                <h2 style="font-size: 1.2rem; color: #ef4444; margin-top: 30px;">Historial de Reportes</h2>
+                <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                    <thead>
+                        <tr style="background: #fef2f2;">
+                            <th style="border: 1px solid #fee2e2; padding: 12px; text-align: left;">Fecha</th>
+                            <th style="border: 1px solid #fee2e2; padding: 12px; text-align: left;">Tipo</th>
+                            <th style="border: 1px solid #fee2e2; padding: 12px; text-align: left;">Motivo / Comentario</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${student.reports.map(rep => `
+                            <tr>
+                                <td style="border: 1px solid #fee2e2; padding: 10px;">${new Date(rep.date).toLocaleDateString()}</td>
+                                <td style="border: 1px solid #fee2e2; padding: 10px; color: #ef4444; font-weight: bold;">${rep.label}</td>
+                                <td style="border: 1px solid #fee2e2; padding: 10px; font-style: italic;">${rep.reason || '-'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                ` : ''}
             </div>
         `;
     },
@@ -701,6 +835,7 @@ const app = {
                                 <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: left;">Alumno</th>
                                 ${activityList.map(a => `<th style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">Act ${a.num}</th>`).join('')}
                                 <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; background: #e0e7ff; color: #4338ca;">Promedio</th>
+                                <th style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; background: #fee2e2; color: #b91c1c;">Reportes</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -713,11 +848,13 @@ const app = {
                 total += grade;
             }
             const avg = maxActs > 0 ? (total / maxActs).toFixed(1) : "0.0";
+            const reportCount = student.reports?.length || 0;
             return `
                                     <tr>
                                         <td style="border: 1px solid #cbd5e1; padding: 8px; font-weight: 600;">${student.name}</td>
                                         ${studentGrades.map(g => `<td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; color: ${g === 0 ? '#94a3b8' : '#1e293b'}">${g}</td>`).join('')}
                                         <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-weight: bold; background: #f8fafc;">${avg}</td>
+                                        <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center; font-weight: bold; color: ${reportCount > 0 ? '#ef4444' : '#94a3b8'}">${reportCount}</td>
                                     </tr>
                                 `;
         }).join('')}
