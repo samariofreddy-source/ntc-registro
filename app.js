@@ -1051,44 +1051,30 @@ const app = {
     },
 
     execDownload(html, filename) {
-        const element = document.createElement('div');
-        // Usar una técnica de ocultamiento más segura que no rompa el renderizado
-        element.style.position = 'fixed';
-        element.style.top = '0';
-        element.style.left = '0';
-        element.style.width = '210mm';
-        element.style.zIndex = '-1000';
-        element.style.opacity = '0.01';
-        element.style.pointerEvents = 'none';
-
-        element.innerHTML = html;
-        document.body.appendChild(element);
-
+        this.showToast("Generando reporte...", "info");
         const isLandscape = html.includes('Act 8') || html.includes('Act 9') || html.includes('Act 10');
-        if (isLandscape) element.style.width = '297mm';
 
         const opt = {
-            margin: 0,
+            margin: [10, 10, 10, 10],
             filename: filename,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
                 scale: 2,
                 useCORS: true,
-                letterRendering: true
+                letterRendering: true,
+                logging: false
             },
             jsPDF: { unit: 'mm', format: 'a4', orientation: isLandscape ? 'landscape' : 'portrait' },
             pagebreak: { mode: ['css', 'legacy'] }
         };
 
-        // Esperar un momento corto para que el navegador "dibuje" el HTML antes de capturarlo
-        setTimeout(() => {
-            html2pdf().set(opt).from(element).save().then(() => {
-                document.body.removeChild(element);
-            }).catch(err => {
-                console.error("PDF Error:", err);
-                this.showToast("Error al generar PDF", "error");
-            });
-        }, 150);
+        // Generar desde el string directamente es mucho más estable
+        html2pdf().set(opt).from(html).save().then(() => {
+            this.showToast("¡Listo!", "success");
+        }).catch(err => {
+            console.error("PDF Fail:", err);
+            alert("No se pudo descargar el archivo directamente. Como solución rápida: use el botón 'Imprimir' y elija 'Guardar como PDF' en su dispositivo.");
+        });
     },
 
     showToast(message, type = 'info') {
