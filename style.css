@@ -234,6 +234,13 @@ header {
     font-weight: 600;
 }
 
+.groups-controls {
+    display: none;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
 .stat-card {
     background: var(--bg-card);
     backdrop-filter: blur(10px);
@@ -310,6 +317,20 @@ header {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.students-list.collapsed {
+    display: none;
+}
+
+.btn-toggle-group {
+    transition: transform 0.3s ease;
+}
+
+.btn-toggle-group.collapsed {
+    transform: rotate(-90deg);
 }
 
 .student-item {

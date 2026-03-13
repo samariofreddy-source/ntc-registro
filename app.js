@@ -16,7 +16,8 @@ const db = getDatabase(firebaseApp);
 
 const app = {
     data: {
-        groups: []
+        groups: [],
+        collapsedGroups: [] // Store IDs of collapsed groups
     },
     dataLoaded: false,
 
@@ -91,6 +92,15 @@ const app = {
 
             this.dataLoaded = true;
             this.updateStats();
+
+            // Cargar grupos contraídos del localStorage
+            const collapsed = localStorage.getItem('ntc_collapsed_groups');
+            if (collapsed) {
+                this.data.collapsedGroups = JSON.parse(collapsed);
+            } else if (!this.data.collapsedGroups) {
+                this.data.collapsedGroups = [];
+            }
+
             console.log("Datos cargados y normalizados.");
             this.checkRoute();
         });
@@ -375,6 +385,10 @@ const app = {
             <div class="card">
                 <div class="group-header">
                     <div style="display:flex; align-items:center; gap:10px">
+                        <button class="btn-icon btn-toggle-group ${this.data.collapsedGroups.includes(group.id) ? 'collapsed' : ''}" 
+                                onclick="app.toggleGroup('${group.id}')" title="Contraer/Expandir">
+                            <i data-lucide="chevron-down"></i>
+                        </button>
                         <h3 class="group-title" style="cursor:pointer" onclick="window.location.hash='#group/${group.id}'">${group.name}</h3>
                         <button class="btn-icon admin-only" onclick="app.openModal('group', '${group.id}', '${group.name}')" title="Editar Grupo">
                             <i data-lucide="edit-2" style="width:14px"></i>
@@ -395,7 +409,7 @@ const app = {
                         </button>
                     </div>
                 </div>
-                <div class="students-list">
+                <div class="students-list ${this.data.collapsedGroups.includes(group.id) ? 'collapsed' : ''}">
                     ${students.length === 0 ? '<p class="empty-state">Sin alumnos</p>' :
                     students.map(student => `
                         <div class="student-item">
@@ -425,8 +439,55 @@ const app = {
                 </div>
             </div>
         `}).join('');
+
+        // Actualizar botones de control global
+        const btnCollapse = document.getElementById('btn-collapse-all');
+        const btnExpand = document.getElementById('btn-expand-all');
+        const groupsControls = document.getElementById('groups-controls');
+
+        if (this.currentGroupId) {
+            if (groupsControls) groupsControls.style.display = 'none';
+        } else if (this.data.groups.length > 0) {
+            if (groupsControls) groupsControls.style.display = 'flex';
+            if (this.data.collapsedGroups.length >= this.data.groups.length) {
+                if (btnCollapse) btnCollapse.style.display = 'none';
+                if (btnExpand) btnExpand.style.display = 'flex';
+            } else {
+                if (btnCollapse) btnCollapse.style.display = 'flex';
+                if (btnExpand) btnExpand.style.display = 'none';
+            }
+        } else {
+            if (groupsControls) groupsControls.style.display = 'none';
+        }
+
         lucide.createIcons();
         this.updateStats();
+    },
+
+    toggleGroup(groupId) {
+        if (!this.data.collapsedGroups) this.data.collapsedGroups = [];
+
+        const index = this.data.collapsedGroups.indexOf(groupId);
+        if (index === -1) {
+            this.data.collapsedGroups.push(groupId);
+        } else {
+            this.data.collapsedGroups.splice(index, 1);
+        }
+
+        // No guardamos esto en Firebase para que sea un estado local de la sesión
+        // pero sí lo guardamos en localStorage para persistencia del usuario actual
+        localStorage.setItem('ntc_collapsed_groups', JSON.stringify(this.data.collapsedGroups));
+        this.renderAdmin();
+    },
+
+    toggleAllGroups(collapse) {
+        if (collapse) {
+            this.data.collapsedGroups = this.data.groups.map(g => g.id);
+        } else {
+            this.data.collapsedGroups = [];
+        }
+        localStorage.setItem('ntc_collapsed_groups', JSON.stringify(this.data.collapsedGroups));
+        this.renderAdmin();
     },
 
     handleSearch(query) {
@@ -449,14 +510,14 @@ const app = {
         if (matches.length > 0) {
             resultsDiv.style.display = 'block';
             resultsDiv.innerHTML = matches.map(m => `
-                <div class="search-result-item" onclick="window.location.hash='student/${m.id}'; document.getElementById('input-search-student').value='';">
+                < div class="search-result-item" onclick = "window.location.hash='student/${m.id}'; document.getElementById('input-search-student').value='';" >
                     <span class="name">${m.name}</span>
                     <span class="group">${m.groupName}</span>
-                </div>
-            `).join('');
+                </div >
+    `).join('');
         } else {
             resultsDiv.style.display = 'block';
-            resultsDiv.innerHTML = `<div class="search-result-item"><span class="group">No se encontraron alumnos</span></div>`;
+            resultsDiv.innerHTML = `< div class="search-result-item" > <span class="group">No se encontraron alumnos</span></div > `;
         }
     },
 

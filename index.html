@@ -70,6 +70,16 @@
                 <h2 id="current-group-title">Grupo 3ro A</h2>
             </div>
 
+            <div id="groups-controls" class="groups-controls">
+                <button class="btn-text" id="btn-collapse-all" onclick="app.toggleAllGroups(true)">
+                    <i data-lucide="chevrons-up"></i> Contraer Grupos
+                </button>
+                <button class="btn-text" id="btn-expand-all" onclick="app.toggleAllGroups(false)"
+                    style="display: none;">
+                    <i data-lucide="chevrons-down"></i> Mostrar Grupos
+                </button>
+            </div>
+
             <section id="groups-container">
                 <!-- Groups will be rendered here -->
                 <div class="empty-state">
