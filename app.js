@@ -22,15 +22,34 @@ const app = {
     dataLoaded: false,
 
     init() {
-        console.log("NTC Registro v2.2 - Iniciando...");
-        // Desactivada la persistencia por seguridad. Se pedirá PIN cada vez que se abra la app.
-        this.isAdmin = false;
+        console.log("NTC Registro v2.4 - Iniciando...");
         this.bindEvents();
-        this.checkAuth();
+        this.checkAdminSession(); // Verificar si ya hay una sesión activa
         this.loadData(); // loadData ahora llamará a checkRoute cuando los datos lleguen
         this.checkRoute(); // Llamar a checkRoute de inmediato
         window.addEventListener('hashchange', () => this.checkRoute());
         lucide.createIcons();
+    },
+
+    checkAdminSession() {
+        const session = localStorage.getItem('ntc_admin_session');
+        if (session) {
+            const sessionData = JSON.parse(session);
+            const now = Date.now();
+            const fourHours = 4 * 60 * 60 * 1000;
+
+            if (now - sessionData.timestamp < fourHours) {
+                this.isAdmin = true;
+                console.log("Sesión de administrador recuperada.");
+            } else {
+                localStorage.removeItem('ntc_admin_session');
+                this.isAdmin = false;
+                console.log("Sesión de administrador expirada.");
+            }
+        } else {
+            this.isAdmin = false;
+        }
+        this.checkAuth();
     },
 
     isAdmin: false,
@@ -51,8 +70,12 @@ const app = {
     verifyPin(pin) {
         if (pin === this.MASTER_PIN) {
             this.isAdmin = true;
-            // No guardamos en localStorage para evitar que la sesión sea permanente 
-            // y obligar a poner el pin si se refresca la página.
+            // Guardamos sesión en localStorage con un timestamp para seguridad (expira en 4h)
+            localStorage.setItem('ntc_admin_session', JSON.stringify({
+                isAdmin: true,
+                timestamp: Date.now()
+            }));
+
             this.checkAuth();
             this.closeModal();
             this.showToast("Acceso concedido", "success");
@@ -66,7 +89,7 @@ const app = {
 
     logout() {
         this.isAdmin = false;
-        localStorage.removeItem('ntc_admin'); // Limpiar persistencia
+        localStorage.removeItem('ntc_admin_session'); // Limpiar sesión
         this.checkAuth();
         this.renderAdmin();
         if (this.currentStudentId) {
