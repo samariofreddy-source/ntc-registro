@@ -533,14 +533,14 @@ const app = {
         if (matches.length > 0) {
             resultsDiv.style.display = 'block';
             resultsDiv.innerHTML = matches.map(m => `
-                < div class="search-result-item" onclick = "window.location.hash='student/${m.id}'; document.getElementById('input-search-student').value='';" >
+                <div class="search-result-item" onclick="window.location.hash='student/${m.id}'; document.getElementById('input-search-student').value='';">
                     <span class="name">${m.name}</span>
                     <span class="group">${m.groupName}</span>
-                </div >
+                </div>
     `).join('');
         } else {
             resultsDiv.style.display = 'block';
-            resultsDiv.innerHTML = `< div class="search-result-item" > <span class="group">No se encontraron alumnos</span></div > `;
+            resultsDiv.innerHTML = `<div class="search-result-item"><span class="group">No se encontraron alumnos</span></div>`;
         }
     },
 
