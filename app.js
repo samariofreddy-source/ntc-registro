@@ -967,6 +967,30 @@ const app = {
         const activities = this.getActivitiesArray(student);
         const reports = this.getReportsArray(student);
 
+        // Calcular progreso y actividades faltantes
+        const group = this.data.groups.find(g => String(g.id) === String(student.groupId));
+        let maxStudentActs = [];
+        let maxCount = 0;
+
+        if (group) {
+            const studentsInGroup = this.getStudentsArray(group);
+            studentsInGroup.forEach(s => {
+                const sActs = this.getActivitiesArray(s);
+                if (sActs.length > maxCount) {
+                    maxCount = sActs.length;
+                    maxStudentActs = sActs;
+                }
+            });
+        }
+
+        const currentActNames = activities.map(a => a.name.trim().toLowerCase());
+        const missingActNames = maxStudentActs
+            .filter(a => !currentActNames.includes(a.name.trim().toLowerCase()))
+            .map(a => a.name);
+
+        const totalPossible = maxCount;
+        const currentCount = activities.length;
+
         return `
             <style>
                 .pdf-body { font-family: Arial, sans-serif; padding: 10mm; color: #1e293b; }
@@ -976,6 +1000,10 @@ const app = {
                 .report-title { color: #6366f1; margin-bottom: 5px; font-size: 22pt; font-weight: bold; }
                 .danger-title { color: #ef4444; margin-top: 20px; font-size: 14pt; font-weight: bold; }
                 .page-break { page-break-before: always; }
+                .summary-box { background: #f8fafc; border: 1px solid #6366f1; padding: 15px; border-radius: 8px; margin-top: 20px; }
+                .summary-item { margin: 8px 0; font-size: 11pt; color: #1e293b; }
+                .missing-list { color: #b91c1c; font-weight: bold; margin-top: 5px; font-size: 11pt; }
+                .completed-msg { color: #059669; font-weight: 700; font-size: 11pt; margin-top: 5px; }
             </style>
             <div class="pdf-body">
                 <h1 class="report-title">Historial del Alumno</h1>
@@ -1004,6 +1032,14 @@ const app = {
                         `).join('')}
                     </tbody>
                 </table>
+
+                <div class="summary-box">
+                    <p class="summary-item"><strong>Resumen de Progreso:</strong> ${currentCount} actividades de ${totalPossible} totales (${currentCount}/${totalPossible})</p>
+                    ${missingActNames.length > 0 ? `
+                        <p class="summary-item"><strong>Actividades faltantes:</strong></p>
+                        <p class="missing-list">${missingActNames.join(', ')}</p>
+                    ` : '<p class="completed-msg">¡Felicidades! Todas las actividades han sido completadas.</p>'}
+                </div>
 
                 ${(reports.length > 0) ? `
                 <div class="page-break"></div>
