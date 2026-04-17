@@ -22,7 +22,7 @@ const app = {
     dataLoaded: false,
 
     init() {
-        console.log("NTC Registro v2.4 - Iniciando...");
+        console.log("NTC Registro v2.5 - Iniciando...");
         this.bindEvents();
         this.checkAdminSession(); // Verificar si ya hay una sesión activa
         this.loadData(); // loadData ahora llamará a checkRoute cuando los datos lleguen
@@ -341,6 +341,15 @@ const app = {
         document.getElementById('display-student-name').textContent = student.name;
         document.getElementById('display-student-group').textContent = student.groupName;
 
+        // Auto-completar nombre de actividad si ya se registró una hoy para este grupo
+        const nameInput = document.getElementById('activity-name');
+        if (nameInput) {
+            const now = new Date();
+            const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            const lastActivity = localStorage.getItem(`ntc_last_act_${student.groupId}_${today}`);
+            nameInput.value = lastActivity || '';
+        }
+
         this.updateActivitySuggestions();
         this.renderStudentActivities(student);
         this.renderStudentReports(student);
@@ -642,8 +651,17 @@ const app = {
 
         this.saveData();
         this.updateActivitySuggestions();
+
+        // Guardar nombre de actividad para auto-completar en el mismo grupo y día
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        localStorage.setItem(`ntc_last_act_${group.id}_${today}`, name);
+
         this.renderStudentActivities({ ...student, groupName: group.name, groupId: group.id });
-        nameInput.value = '';
+        
+        // Al limpiar, si tenemos el nombre guardado para hoy/grupo, lo volvemos a poner
+        // (esto ayuda si se registra otra actividad para el mismo alumno)
+        nameInput.value = localStorage.getItem(`ntc_last_act_${group.id}_${today}`) || '';
         gradeInput.value = '';
 
         // Limpiar selección de botones rápidos
