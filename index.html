@@ -147,6 +147,14 @@
                         <div class="form-group">
                             <label for="activity-grade">Calificación</label>
                             <input type="number" id="activity-grade" min="0" max="100" placeholder="0-100" required>
+                            <div id="quick-grades" class="quick-grades">
+                                <button type="button" class="btn-grade" onclick="app.setGrade(5)">5</button>
+                                <button type="button" class="btn-grade" onclick="app.setGrade(6)">6</button>
+                                <button type="button" class="btn-grade" onclick="app.setGrade(7)">7</button>
+                                <button type="button" class="btn-grade" onclick="app.setGrade(8)">8</button>
+                                <button type="button" class="btn-grade" onclick="app.setGrade(9)">9</button>
+                                <button type="button" class="btn-grade" onclick="app.setGrade(10)">10</button>
+                            </div>
                         </div>
                         <button type="submit" class="btn-submit">Guardar Registro</button>
                     </form>

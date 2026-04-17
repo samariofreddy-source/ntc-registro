@@ -126,6 +126,9 @@ const app = {
 
             console.log("Datos cargados y normalizados.");
             this.checkRoute();
+        }, (error) => {
+            console.error("Firebase Read Error:", error);
+            this.showToast("Error de acceso: Las reglas de Firebase han vencido.", "error");
         });
     },
 
@@ -151,7 +154,14 @@ const app = {
     saveData() {
         // Save to Firebase (Realtime)
         set(ref(db, 'ntc_data'), this.data)
-            .catch(err => console.error("Error saving to Firebase:", err));
+            .then(() => {
+                // Opcional: mostrar éxito al guardar
+                // this.showToast("Sincronizado", "success");
+            })
+            .catch(err => {
+                console.error("Error saving to Firebase:", err);
+                this.showToast("Error al guardar: Acceso denegado.", "error");
+            });
 
         // Also keep a local backup
         localStorage.setItem('ntc_registro_data', JSON.stringify(this.data));
@@ -199,6 +209,13 @@ const app = {
 
         const formReport = document.getElementById('form-add-report');
         if (formReport) formReport.onsubmit = (e) => this.handleReportSubmit(e);
+
+        const gradeInput = document.getElementById('activity-grade');
+        if (gradeInput) {
+            gradeInput.oninput = () => {
+                document.querySelectorAll('.btn-grade').forEach(btn => btn.classList.remove('selected'));
+            };
+        }
 
         // Modal buttons
         const btnConfirm = document.getElementById('modal-confirm');
@@ -628,6 +645,29 @@ const app = {
         this.renderStudentActivities({ ...student, groupName: group.name, groupId: group.id });
         nameInput.value = '';
         gradeInput.value = '';
+
+        // Limpiar selección de botones rápidos
+        document.querySelectorAll('.btn-grade').forEach(btn => btn.classList.remove('selected'));
+    },
+
+    setGrade(grade) {
+        const input = document.getElementById('activity-grade');
+        if (input) {
+            input.value = grade;
+
+            // Visual feedback for selected button
+            document.querySelectorAll('.btn-grade').forEach(btn => {
+                btn.classList.remove('selected');
+                if (parseInt(btn.textContent) === grade) {
+                    btn.classList.add('selected');
+                }
+            });
+
+            // Feedback táctil si es posible
+            if (window.navigator && window.navigator.vibrate) {
+                window.navigator.vibrate(20);
+            }
+        }
     },
 
     handleReportSubmit(e) {
