@@ -447,7 +447,7 @@ const app = {
                         <button class="btn-icon danger" onclick="app.deleteGroup('${group.id}')" title="Eliminar Grupo">
                             <i data-lucide="trash-2"></i>
                         </button>
-                        <button class="btn-icon" onclick="app.downloadGroup('${group.id}')" title="Descargar Reporte">
+                        <button class="btn-icon" onclick="app.downloadGroupOptions('${group.id}', '${group.name}')" title="Descargar Reporte">
                             <i data-lucide="download"></i>
                         </button>
                         <button class="btn-icon" onclick="app.printGroup('${group.id}')" title="Imprimir Reporte">
@@ -809,9 +809,13 @@ const app = {
         const overlay = document.getElementById('modal-container');
         const title = document.getElementById('modal-title');
         const content = document.getElementById('modal-content');
+        const confirmBtn = document.getElementById('modal-confirm');
 
         this.modalContext = { type, targetId, studentId };
         overlay.classList.add('active');
+
+        // Reset display of confirm button
+        if (confirmBtn) confirmBtn.style.display = 'block';
 
         if (type === 'group') {
             title.textContent = targetId ? 'Editar Grupo' : 'Nuevo Grupo';
@@ -837,6 +841,20 @@ const app = {
                     <input type="password" id="input-pin" placeholder="****" inputmode="numeric" pattern="[0-9]*">
                 </div>
             `;
+        } else if (type === 'download-options') {
+            title.textContent = 'Opciones de Descarga';
+            content.innerHTML = `
+                <p style="margin-bottom: 20px; color: var(--text-muted);">Seleccione el tipo de reporte para el grupo <b>${currentName}</b>:</p>
+                <div style="display: grid; gap: 12px;">
+                    <button class="btn-primary" onclick="app.downloadGroup('${targetId}'); app.closeModal();" style="justify-content: center;">
+                        <i data-lucide="file-text"></i> Reporte General
+                    </button>
+                    <button class="btn-primary" onclick="app.downloadGroupIndividualReports('${targetId}'); app.closeModal();" style="justify-content: center; background-color: var(--accent);">
+                        <i data-lucide="users"></i> Individuales
+                    </button>
+                </div>
+            `;
+            if (confirmBtn) confirmBtn.style.display = 'none';
         }
     },
 
@@ -1018,7 +1036,37 @@ const app = {
     downloadGroup(groupId) {
         const group = this.data.groups.find(g => g.id === groupId);
         const html = this.getGroupReportHTML(group);
-        this.execDownload(html, `Reporte_Grupo_${group.name.replace(/ /g, '_')}.pdf`);
+        this.execDownload(html, `Reporte_General_${group.name.replace(/ /g, '_')}.pdf`);
+    },
+
+    downloadGroupOptions(groupId, groupName) {
+        this.openModal('download-options', groupId, groupName);
+        lucide.createIcons();
+    },
+
+    downloadGroupIndividualReports(groupId) {
+        const group = this.data.groups.find(g => g.id === groupId);
+        if (!group) return;
+
+        const students = this.getStudentsArray(group);
+        if (students.length === 0) {
+            this.showToast("No hay alumnos en este grupo", "error");
+            return;
+        }
+
+        this.showToast("Generando reportes individuales...", "info");
+
+        let fullHtml = "";
+        students.forEach((student, index) => {
+            const studentWithGroup = this.findStudent(student.id);
+            const studentHtml = this.getStudentReportHTML(studentWithGroup);
+            fullHtml += studentHtml;
+            if (index < students.length - 1) {
+                fullHtml += '<div class="page-break"></div>';
+            }
+        });
+
+        this.execDownload(fullHtml, `Reportes_Individuales_${group.name.replace(/ /g, '_')}.pdf`);
     },
 
     getStudentReportHTML(student) {
