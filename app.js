@@ -1104,7 +1104,7 @@ const app = {
                 th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; font-size: 11pt; }
                 th { background: #f1f5f9; }
                 .report-title { color: #6366f1; margin-bottom: 5px; font-size: 22pt; font-weight: bold; }
-                .danger-title { color: #ef4444; margin-top: 20px; font-size: 14pt; font-weight: bold; }
+                .danger-title { color: #ef4444; margin-top: 30px; font-size: 14pt; font-weight: bold; }
                 .page-break { page-break-before: always; }
                 .summary-box { background: #f8fafc; border: 1px solid #6366f1; padding: 15px; border-radius: 8px; margin-top: 20px; }
                 .summary-item { margin: 8px 0; font-size: 11pt; color: #1e293b; }
@@ -1148,14 +1148,13 @@ const app = {
                 </div>
 
                 ${(reports.length > 0) ? `
-                <div class="page-break"></div>
                 <h2 class="danger-title">Historial de Reportes</h2>
                 <table>
                     <thead>
                         <tr style="background: #fef2f2;">
-                            <th>Fecha</th>
-                            <th>Tipo</th>
-                            <th>Motivo / Comentario</th>
+                            <th style="width: 20%;">Fecha</th>
+                            <th style="width: 30%;">Tipo</th>
+                            <th style="width: 50%;">Motivo / Comentario</th>
                         </tr>
                     </thead>
                     <tbody>
