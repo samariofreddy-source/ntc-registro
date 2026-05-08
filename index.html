@@ -160,7 +160,17 @@
                     </form>
                 </div>
 
+                <div class="filter-container" style="margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                        <label for="select-month" style="font-size: 0.9rem; color: var(--text-muted); font-weight: 600;">Filtrar por Mes:</label>
+                        <select id="select-month" class="premium-select" onchange="app.handleMonthChange(this.value)">
+                            <option value="all">Todos los meses</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div class="activities-summary">
+
                     <div class="summary-header">
                         <h3>Progreso de Actividades</h3>
                         <div class="progress-badge">

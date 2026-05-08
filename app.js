@@ -20,6 +20,7 @@ const app = {
         collapsedGroups: [] // Store IDs of collapsed groups
     },
     dataLoaded: false,
+    selectedMonth: 'all',
 
     init() {
         console.log("NTC Registro v2.5 - Iniciando...");
@@ -351,9 +352,54 @@ const app = {
         }
 
         this.updateActivitySuggestions();
+        this.updateMonthSelector(student);
         this.renderStudentActivities(student);
         this.renderStudentReports(student);
         lucide.createIcons(); // Asegurar que los botones de candado se vean
+    },
+
+    updateMonthSelector(student) {
+        const selector = document.getElementById('select-month');
+        if (!selector) return;
+
+        const activities = this.getActivitiesArray(student);
+        const months = new Set();
+        
+        // También buscar meses de otros alumnos en el mismo grupo para que el selector sea consistente
+        const group = this.data.groups.find(g => String(g.id) === String(student.groupId));
+        if (group) {
+            const students = this.getStudentsArray(group);
+            students.forEach(s => {
+                this.getActivitiesArray(s).forEach(act => {
+                    if (act.date) {
+                        const d = new Date(act.date);
+                        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        months.add(monthKey);
+                    }
+                });
+            });
+        }
+
+        const sortedMonths = Array.from(months).sort().reverse();
+        
+        let html = '<option value="all">Todos los meses</option>';
+        const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+        sortedMonths.forEach(m => {
+            const [year, month] = m.split('-');
+            const name = `${monthNames[parseInt(month) - 1]} ${year}`;
+            html += `<option value="${m}" ${this.selectedMonth === m ? 'selected' : ''}>${name}</option>`;
+        });
+
+        selector.innerHTML = html;
+    },
+
+    handleMonthChange(month) {
+        this.selectedMonth = month;
+        const student = this.findStudent(this.currentStudentId);
+        if (student) {
+            this.renderStudentActivities(student);
+        }
     },
 
     switchTab(tabName) {
@@ -573,11 +619,36 @@ const app = {
     renderStudentActivities(student) {
         if (!student) return;
         const list = document.getElementById('activities-list');
-        const activities = this.getActivitiesArray(student);
-        const count = activities.length;
-
+        let activities = this.getActivitiesArray(student);
+        
         const group = this.data.groups.find(g => String(g.id) === String(student.groupId));
-        const maxActivities = this.getMaxActivitiesForGroup(group);
+        let maxActivities = 0;
+
+        if (this.selectedMonth !== 'all') {
+            activities = activities.filter(act => {
+                const d = new Date(act.date);
+                const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                return monthKey === this.selectedMonth;
+            });
+
+            // Calcular el máximo de actividades en ESTE mes para el grupo
+            if (group) {
+                const students = this.getStudentsArray(group);
+                students.forEach(s => {
+                    const sActs = this.getActivitiesArray(s).filter(act => {
+                        const d = new Date(act.date);
+                        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        return monthKey === this.selectedMonth;
+                    });
+                    if (sActs.length > maxActivities) maxActivities = sActs.length;
+                });
+            }
+        } else {
+            maxActivities = this.getMaxActivitiesForGroup(group);
+        }
+
+        if (maxActivities === 0) maxActivities = 1;
+        const count = activities.length;
         const percent = Math.min((count / maxActivities) * 100, 100);
 
         document.getElementById('progress-text').textContent = `${count}/${maxActivities}`;
@@ -842,15 +913,47 @@ const app = {
                 </div>
             `;
         } else if (type === 'download-options') {
-            title.textContent = 'Opciones de Descarga';
+            const group = this.data.groups.find(g => String(g.id) === String(targetId));
+            const months = new Set();
+            if (group) {
+                const students = this.getStudentsArray(group);
+                students.forEach(s => {
+                    this.getActivitiesArray(s).forEach(act => {
+                        if (act.date) {
+                            const d = new Date(act.date);
+                            const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                            months.add(monthKey);
+                        }
+                    });
+                });
+            }
+            const sortedMonths = Array.from(months).sort().reverse();
+            const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+            title.textContent = 'Opciones de Reporte';
             content.innerHTML = `
-                <p style="margin-bottom: 20px; color: var(--text-muted);">Seleccione el tipo de reporte para el grupo <b>${currentName}</b>:</p>
+                <p style="margin-bottom: 15px; color: var(--text-muted);">Seleccione el periodo y tipo de reporte para <b>${currentName}</b>:</p>
+                
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Periodo (Mes):</label>
+                    <select id="modal-select-month" class="premium-select" style="width: 100%;">
+                        <option value="all">Todo el historial</option>
+                        ${sortedMonths.map(m => {
+                            const [year, month] = m.split('-');
+                            return `<option value="${m}">${monthNames[parseInt(month) - 1]} ${year}</option>`;
+                        }).join('')}
+                    </select>
+                </div>
+
                 <div style="display: grid; gap: 12px;">
-                    <button class="btn-primary" onclick="app.downloadGroup('${targetId}'); app.closeModal();" style="justify-content: center;">
+                    <button class="btn-primary" onclick="app.downloadGroup('${targetId}', document.getElementById('modal-select-month').value); app.closeModal();" style="justify-content: center;">
                         <i data-lucide="file-text"></i> Reporte General
                     </button>
-                    <button class="btn-primary" onclick="app.downloadGroupIndividualReports('${targetId}'); app.closeModal();" style="justify-content: center; background-color: var(--accent);">
+                    <button class="btn-primary" onclick="app.downloadGroupIndividualReports('${targetId}', document.getElementById('modal-select-month').value); app.closeModal();" style="justify-content: center; background-color: var(--accent);">
                         <i data-lucide="users"></i> Individuales
+                    </button>
+                    <button class="btn-secondary" onclick="app.printGroup('${targetId}', document.getElementById('modal-select-month').value); app.closeModal();" style="justify-content: center; border: 1px solid var(--glass-border); color: var(--text-main);">
+                        <i data-lucide="printer"></i> Imprimir Selección
                     </button>
                 </div>
             `;
@@ -1017,26 +1120,27 @@ const app = {
     // Reporting Logic (Print & Download)
     printStudent() {
         const student = this.findStudent(this.currentStudentId);
-        const html = this.getStudentReportHTML(student);
+        const html = this.getStudentReportHTML(student, this.selectedMonth);
         this.execPrint(html);
     },
 
     downloadStudent() {
         const student = this.findStudent(this.currentStudentId);
-        const html = this.getStudentReportHTML(student);
+        const html = this.getStudentReportHTML(student, this.selectedMonth);
         this.execDownload(html, `Reporte_${student.name.replace(/ /g, '_')}.pdf`);
     },
 
-    printGroup(groupId) {
+    printGroup(groupId, month = 'all') {
         const group = this.data.groups.find(g => g.id === groupId);
-        const html = this.getGroupReportHTML(group);
+        const html = this.getGroupReportHTML(group, month);
         this.execPrint(html);
     },
 
-    downloadGroup(groupId) {
+    downloadGroup(groupId, month = 'all') {
         const group = this.data.groups.find(g => g.id === groupId);
-        const html = this.getGroupReportHTML(group);
-        this.execDownload(html, `Reporte_General_${group.name.replace(/ /g, '_')}.pdf`);
+        const html = this.getGroupReportHTML(group, month);
+        const monthSuffix = month !== 'all' ? `_${month}` : '';
+        this.execDownload(html, `Reporte_General_${group.name.replace(/ /g, '_')}${monthSuffix}.pdf`);
     },
 
     downloadGroupOptions(groupId, groupName) {
@@ -1044,7 +1148,7 @@ const app = {
         lucide.createIcons();
     },
 
-    downloadGroupIndividualReports(groupId) {
+    downloadGroupIndividualReports(groupId, month = 'all') {
         const group = this.data.groups.find(g => g.id === groupId);
         if (!group) return;
 
@@ -1059,19 +1163,29 @@ const app = {
         let fullHtml = "";
         students.forEach((student, index) => {
             const studentWithGroup = this.findStudent(student.id);
-            const studentHtml = this.getStudentReportHTML(studentWithGroup);
+            const studentHtml = this.getStudentReportHTML(studentWithGroup, month);
             fullHtml += studentHtml;
             if (index < students.length - 1) {
                 fullHtml += '<div class="page-break"></div>';
             }
         });
 
-        this.execDownload(fullHtml, `Reportes_Individuales_${group.name.replace(/ /g, '_')}.pdf`);
+        const monthSuffix = month !== 'all' ? `_${month}` : '';
+        this.execDownload(fullHtml, `Reportes_Individuales_${group.name.replace(/ /g, '_')}${monthSuffix}.pdf`);
     },
 
-    getStudentReportHTML(student) {
-        const activities = this.getActivitiesArray(student);
+    getStudentReportHTML(student, filterMonth = 'all') {
+        let activities = this.getActivitiesArray(student);
         const reports = this.getReportsArray(student);
+
+        // Filtrar actividades por mes si es necesario
+        if (filterMonth !== 'all') {
+            activities = activities.filter(act => {
+                const d = new Date(act.date);
+                const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                return monthKey === filterMonth;
+            });
+        }
 
         // Calcular progreso y actividades faltantes
         const group = this.data.groups.find(g => String(g.id) === String(student.groupId));
@@ -1081,7 +1195,14 @@ const app = {
         if (group) {
             const studentsInGroup = this.getStudentsArray(group);
             studentsInGroup.forEach(s => {
-                const sActs = this.getActivitiesArray(s);
+                let sActs = this.getActivitiesArray(s);
+                if (filterMonth !== 'all') {
+                    sActs = sActs.filter(act => {
+                        const d = new Date(act.date);
+                        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        return monthKey === filterMonth;
+                    });
+                }
                 if (sActs.length > maxCount) {
                     maxCount = sActs.length;
                     maxStudentActs = sActs;
@@ -1094,8 +1215,15 @@ const app = {
             .filter(a => !currentActNames.includes(a.name.trim().toLowerCase()))
             .map(a => a.name);
 
-        const totalPossible = maxCount;
+        const totalPossible = maxCount || (filterMonth === 'all' ? 0 : 0);
         const currentCount = activities.length;
+
+        const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        let monthTitle = "";
+        if (filterMonth !== 'all') {
+            const [year, month] = filterMonth.split('-');
+            monthTitle = ` - ${monthNames[parseInt(month) - 1]} ${year}`;
+        }
 
         return `
             <style>
@@ -1112,10 +1240,11 @@ const app = {
                 .completed-msg { color: #059669; font-weight: 700; font-size: 11pt; margin-top: 5px; }
             </style>
             <div class="pdf-body">
-                <h1 class="report-title">Historial del Alumno</h1>
+                <h1 class="report-title">Historial del Alumno${monthTitle}</h1>
                 <p><strong>Alumno:</strong> ${student.name}</p>
                 <p><strong>Grupo:</strong> ${student.groupName || '-'}</p>
-                <p><strong>Fecha:</strong> ${new Date().toLocaleDateString()}</p>
+                <p><strong>Fecha de Emisión:</strong> ${new Date().toLocaleDateString()}</p>
+                ${filterMonth !== 'all' ? `<p><strong>Mes del Reporte:</strong> ${monthTitle.replace(' - ', '')}</p>` : ''}
                 <p><strong>Reportes Totales:</strong> ${reports.length}</p>
                 <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;">
                 
@@ -1172,22 +1301,63 @@ const app = {
         `;
     },
 
-    getGroupReportHTML(group) {
+    getGroupReportHTML(group, filterMonth = 'all') {
         const students = this.getStudentsArray(group);
-        const maxActs = this.getMaxActivitiesForGroup(group);
+        
+        // Determinar el máximo de actividades para el periodo (mes o todo)
+        let maxActs = 0;
+        if (filterMonth !== 'all') {
+            students.forEach(s => {
+                const sActs = this.getActivitiesArray(s).filter(act => {
+                    const d = new Date(act.date);
+                    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    return monthKey === filterMonth;
+                });
+                if (sActs.length > maxActs) maxActs = sActs.length;
+            });
+        } else {
+            maxActs = this.getMaxActivitiesForGroup(group);
+        }
+
         let activityList = [];
         for (let i = 0; i < maxActs; i++) {
             const studentWithAct = students.find(s => {
-                const acts = this.getActivitiesArray(s);
+                let acts = this.getActivitiesArray(s);
+                if (filterMonth !== 'all') {
+                    acts = acts.filter(act => {
+                        const d = new Date(act.date);
+                        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        return monthKey === filterMonth;
+                    });
+                }
                 return acts[i];
             });
-            const sample = studentWithAct ? this.getActivitiesArray(studentWithAct)[i] : null;
+            
+            let sample = null;
+            if (studentWithAct) {
+                let acts = this.getActivitiesArray(studentWithAct);
+                if (filterMonth !== 'all') {
+                    acts = acts.filter(act => {
+                        const d = new Date(act.date);
+                        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        return monthKey === filterMonth;
+                    });
+                }
+                sample = acts[i];
+            }
 
             if (sample) {
                 activityList.push({ num: i + 1, name: sample.name, date: new Date(sample.date).toLocaleDateString() });
             } else {
                 activityList.push({ num: i + 1, name: `Actividad ${i + 1}`, date: '-' });
             }
+        }
+
+        const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        let monthTitle = "";
+        if (filterMonth !== 'all') {
+            const [year, month] = filterMonth.split('-');
+            monthTitle = ` - ${monthNames[parseInt(month) - 1]} ${year}`;
         }
 
         return `
@@ -1201,8 +1371,8 @@ const app = {
                 .page-break { page-break-before: always; }
             </style>
             <div class="pdf-body">
-                <h1 class="heading">Reporte de Grupo: ${group.name}</h1>
-                <p style="color: #64748b; margin-bottom: 20px;">Fecha: ${new Date().toLocaleDateString()}</p>
+                <h1 class="heading">Reporte de Grupo: ${group.name}${monthTitle}</h1>
+                <p style="color: #64748b; margin-bottom: 20px;">Fecha de Emisión: ${new Date().toLocaleDateString()}</p>
                 
                 <h2 class="sub-heading">Cuadro de Calificaciones</h2>
                 <table>
@@ -1217,7 +1387,14 @@ const app = {
                     <tbody>
                         ${students.map(student => {
             let total = 0;
-            const acts = this.getActivitiesArray(student);
+            let acts = this.getActivitiesArray(student);
+            if (filterMonth !== 'all') {
+                acts = acts.filter(act => {
+                    const d = new Date(act.date);
+                    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    return monthKey === filterMonth;
+                });
+            }
             const reports = this.getReportsArray(student);
             const studentGrades = [];
 
