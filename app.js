@@ -962,14 +962,20 @@ const app = {
             const student = this.findStudent(this.currentStudentId);
             const months = new Set();
             if (student) {
-                // Buscar meses de actividades de este alumno
-                this.getActivitiesArray(student).forEach(act => {
-                    if (act.date) {
-                        const d = new Date(act.date);
-                        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                        months.add(monthKey);
-                    }
-                });
+                // Buscar meses de actividades de TODO el grupo para que las opciones sean consistentes
+                const group = this.data.groups.find(g => String(g.id) === String(student.groupId));
+                if (group) {
+                    const students = this.getStudentsArray(group);
+                    students.forEach(s => {
+                        this.getActivitiesArray(s).forEach(act => {
+                            if (act.date) {
+                                const d = new Date(act.date);
+                                const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                                months.add(monthKey);
+                            }
+                        });
+                    });
+                }
             }
             const sortedMonths = Array.from(months).sort().reverse();
             const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
