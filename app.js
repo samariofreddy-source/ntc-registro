@@ -958,6 +958,47 @@ const app = {
                 </div>
             `;
             if (confirmBtn) confirmBtn.style.display = 'none';
+        } else if (type === 'student-download-options') {
+            const student = this.findStudent(this.currentStudentId);
+            const months = new Set();
+            if (student) {
+                // Buscar meses de actividades de este alumno
+                this.getActivitiesArray(student).forEach(act => {
+                    if (act.date) {
+                        const d = new Date(act.date);
+                        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        months.add(monthKey);
+                    }
+                });
+            }
+            const sortedMonths = Array.from(months).sort().reverse();
+            const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+            title.textContent = 'Opciones de Reporte';
+            content.innerHTML = `
+                <p style="margin-bottom: 15px; color: var(--text-muted);">Seleccione el periodo para el reporte de <b>${student.name}</b>:</p>
+                
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Periodo (Mes):</label>
+                    <select id="modal-select-month-student" class="premium-select" style="width: 100%;">
+                        <option value="all">Todo el historial</option>
+                        ${sortedMonths.map(m => {
+                            const [year, month] = m.split('-');
+                            return `<option value="${m}" ${this.selectedMonth === m ? 'selected' : ''}>${monthNames[parseInt(month) - 1]} ${year}</option>`;
+                        }).join('')}
+                    </select>
+                </div>
+
+                <div style="display: grid; gap: 12px;">
+                    <button class="btn-primary" onclick="app.execDownloadStudent(document.getElementById('modal-select-month-student').value); app.closeModal();" style="justify-content: center;">
+                        <i data-lucide="download"></i> Descargar PDF
+                    </button>
+                    <button class="btn-secondary" onclick="app.execPrintStudent(document.getElementById('modal-select-month-student').value); app.closeModal();" style="justify-content: center; border: 1px solid var(--glass-border); color: var(--text-main);">
+                        <i data-lucide="printer"></i> Imprimir Reporte
+                    </button>
+                </div>
+            `;
+            if (confirmBtn) confirmBtn.style.display = 'none';
         }
     },
 
@@ -1119,15 +1160,26 @@ const app = {
     // Printing Logic
     // Reporting Logic (Print & Download)
     printStudent() {
-        const student = this.findStudent(this.currentStudentId);
-        const html = this.getStudentReportHTML(student, this.selectedMonth);
-        this.execPrint(html);
+        this.openModal('student-download-options');
+        lucide.createIcons();
     },
 
     downloadStudent() {
+        this.openModal('student-download-options');
+        lucide.createIcons();
+    },
+
+    execPrintStudent(month) {
         const student = this.findStudent(this.currentStudentId);
-        const html = this.getStudentReportHTML(student, this.selectedMonth);
-        this.execDownload(html, `Reporte_${student.name.replace(/ /g, '_')}.pdf`);
+        const html = this.getStudentReportHTML(student, month);
+        this.execPrint(html);
+    },
+
+    execDownloadStudent(month) {
+        const student = this.findStudent(this.currentStudentId);
+        const html = this.getStudentReportHTML(student, month);
+        const monthSuffix = month !== 'all' ? `_${month}` : '';
+        this.execDownload(html, `Reporte_${student.name.replace(/ /g, '_')}${monthSuffix}.pdf`);
     },
 
     printGroup(groupId, month = 'all') {
