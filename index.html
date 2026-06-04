@@ -156,6 +156,19 @@
                                 <button type="button" class="btn-grade" onclick="app.setGrade(10)">10</button>
                             </div>
                         </div>
+                        <div class="form-group toggle-group" style="display: flex; align-items: center; justify-content: space-between; margin: 15px 0 10px 0;">
+                            <label for="activity-late" style="margin: 0; font-weight: 600; font-size: 0.9rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                <i data-lucide="calendar-clock" style="width: 16px; height: 16px;"></i> Registrar en mes anterior
+                            </label>
+                            <label class="switch">
+                                <input type="checkbox" id="activity-late">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div id="activity-date-container" class="form-group" style="display: none; margin-bottom: 15px;">
+                            <label for="activity-date">Fecha de Registro</label>
+                            <input type="date" id="activity-date" class="premium-input" style="width: 100%;">
+                        </div>
                         <button type="submit" class="btn-submit">Guardar Registro</button>
                     </form>
                 </div>

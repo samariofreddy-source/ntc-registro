@@ -208,6 +208,11 @@ const app = {
         const formActivity = document.getElementById('form-add-activity');
         if (formActivity) formActivity.onsubmit = (e) => this.handleActivitySubmit(e);
 
+        const lateSwitch = document.getElementById('activity-late');
+        if (lateSwitch) {
+            lateSwitch.onchange = (e) => this.handleLateActivityChange(e.target.checked);
+        }
+
         const formReport = document.getElementById('form-add-report');
         if (formReport) formReport.onsubmit = (e) => this.handleReportSubmit(e);
 
@@ -399,6 +404,26 @@ const app = {
         const student = this.findStudent(this.currentStudentId);
         if (student) {
             this.renderStudentActivities(student);
+        }
+    },
+
+    handleLateActivityChange(checked) {
+        const container = document.getElementById('activity-date-container');
+        const dateInput = document.getElementById('activity-date');
+        if (container && dateInput) {
+            if (checked) {
+                container.style.display = 'block';
+                // Calcular el último día del mes anterior
+                const now = new Date();
+                const lastDayPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+                const year = lastDayPrevMonth.getFullYear();
+                const month = String(lastDayPrevMonth.getMonth() + 1).padStart(2, '0');
+                const day = String(lastDayPrevMonth.getDate()).padStart(2, '0');
+                dateInput.value = `${year}-${month}-${day}`;
+            } else {
+                container.style.display = 'none';
+                dateInput.value = '';
+            }
         }
     },
 
@@ -693,6 +718,17 @@ const app = {
         const name = nameInput.value;
         const grade = gradeInput.value;
 
+        // Manejo de fecha retroactiva (actividad atrasada)
+        const lateSwitch = document.getElementById('activity-late');
+        const dateInput = document.getElementById('activity-date');
+        let activityDate = new Date();
+
+        if (lateSwitch && lateSwitch.checked && dateInput && dateInput.value) {
+            const [year, month, day] = dateInput.value.split('-');
+            // Creamos la fecha a las 12:00 para evitar desajustes de zona horaria al convertir a ISO
+            activityDate = new Date(year, month - 1, day, 12, 0, 0);
+        }
+
         const studentRef = this.findStudent(this.currentStudentId);
         if (!studentRef) {
             this.showToast("No se pudo encontrar el alumno para el registro", "error");
@@ -716,7 +752,7 @@ const app = {
             id: Date.now().toString(),
             name,
             grade,
-            date: new Date().toISOString()
+            date: activityDate.toISOString()
         });
         student.activities = activities;
 
@@ -734,6 +770,12 @@ const app = {
         // (esto ayuda si se registra otra actividad para el mismo alumno)
         nameInput.value = localStorage.getItem(`ntc_last_act_${group.id}_${today}`) || '';
         gradeInput.value = '';
+
+        // Restablecer el interruptor y ocultar la fecha retroactiva
+        if (lateSwitch) {
+            lateSwitch.checked = false;
+            this.handleLateActivityChange(false);
+        }
 
         // Limpiar selección de botones rápidos
         document.querySelectorAll('.btn-grade').forEach(btn => btn.classList.remove('selected'));
