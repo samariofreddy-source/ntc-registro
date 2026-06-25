@@ -1396,12 +1396,14 @@ const app = {
         tableRows.push(['Tabla de actividades desarrolladas', '', '', '', '']);
         tableRows.push(['Número de Actividad', 'Título de la Actividad', 'Día', 'Mes', 'Año']);
 
+        const shortMonthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
         for (let i = 0; i < maxActs; i++) {
             const d = activityDates[i];
             const roman = toRoman(i + 1);
             const actName = activityHeaders[i] || `Actividad ${i + 1}`;
             const day   = d ? d.getDate() : '';
-            const mon   = d ? monthNames[d.getMonth()] : '';
+            const mon   = d ? shortMonthNames[d.getMonth()] : '';
             const yr    = d ? d.getFullYear() : '';
             tableRows.push([roman, actName, day, mon, yr]);
         }
