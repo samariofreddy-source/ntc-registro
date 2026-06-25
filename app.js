@@ -1355,11 +1355,79 @@ const app = {
         }
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
 
+        // --- Segunda hoja: Tabla de actividades desarrolladas ---
+        // Función auxiliar para convertir número a romano
+        const toRoman = (num) => {
+            const vals = [1000,900,500,400,100,90,50,40,10,9,5,4,1];
+            const syms = ['M','CM','D','CD','C','XC','L','XL','X','IX','V','IV','I'];
+            let result = '';
+            vals.forEach((v, i) => { while (num >= v) { result += syms[i]; num -= v; } });
+            return result;
+        };
+
+        // Recopilar todas las actividades únicas (por posición) con su fecha
+        // Usamos el mismo activityHeaders que ya calculamos + las fechas
+        const activityDates = [];
+        for (let i = 0; i < maxActs; i++) {
+            // Buscar el primer alumno que tenga la actividad en esa posición
+            let foundDate = null;
+            students.forEach(s => {
+                if (foundDate) return;
+                let acts = this.getActivitiesArray(s);
+                if (filterMonth !== 'all') {
+                    acts = acts.filter(act => {
+                        const d = new Date(act.date);
+                        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        return monthKey === filterMonth;
+                    });
+                }
+                if (acts[i] && acts[i].date) {
+                    foundDate = new Date(acts[i].date);
+                }
+            });
+            activityDates.push(foundDate);
+        }
+
+        // Construir filas de la segunda hoja
+        // Fila 0: Título fusionado
+        // Fila 1: Encabezados de columna
+        // Filas 2+: datos
+        const tableRows = [];
+        tableRows.push(['Tabla de actividades desarrolladas', '', '', '', '']);
+        tableRows.push(['Número de Actividad', 'Título de la Actividad', 'Día', 'Mes', 'Año']);
+
+        for (let i = 0; i < maxActs; i++) {
+            const d = activityDates[i];
+            const roman = toRoman(i + 1);
+            const actName = activityHeaders[i] || `Actividad ${i + 1}`;
+            const day   = d ? d.getDate() : '';
+            const mon   = d ? monthNames[d.getMonth()] : '';
+            const yr    = d ? d.getFullYear() : '';
+            tableRows.push([roman, actName, day, mon, yr]);
+        }
+
+        const ws2 = XLSX.utils.aoa_to_sheet(tableRows);
+
+        // Fusionar la celda del título (A1:E1)
+        ws2['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
+
+        // Anchos de columna para la tabla de actividades
+        ws2['!cols'] = [
+            { wch: 18 }, // Número de Actividad
+            { wch: 45 }, // Título de la Actividad
+            { wch: 8  }, // Día
+            { wch: 14 }, // Mes
+            { wch: 8  }  // Año
+        ];
+
+        XLSX.utils.book_append_sheet(wb, ws2, 'Tabla de Actividades');
+
         const monthSuffix = filterMonth !== 'all' ? `_${filterMonth}` : '';
         const filename = `Calificaciones_${group.name.replace(/ /g, '_')}${monthSuffix}.xlsx`;
         XLSX.writeFile(wb, filename);
         this.showToast('Excel descargado correctamente.', 'success');
     },
+
 
     downloadGroupOptions(groupId, groupName) {
         this.openModal('download-options', groupId, groupName);
