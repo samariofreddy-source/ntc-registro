@@ -1241,6 +1241,124 @@ const app = {
         const html = this.getGroupReportHTML(group, month);
         const monthSuffix = month !== 'all' ? `_${month}` : '';
         this.execDownload(html, `Reporte_General_${group.name.replace(/ /g, '_')}${monthSuffix}.pdf`);
+        // También descargar el Excel automáticamente
+        this.downloadGroupExcel(groupId, month);
+    },
+
+    downloadGroupExcel(groupId, filterMonth = 'all') {
+        const group = this.data.groups.find(g => String(g.id) === String(groupId));
+        if (!group) return;
+
+        const students = this.getStudentsArray(group);
+        if (students.length === 0) {
+            this.showToast('No hay alumnos para exportar a Excel.', 'error');
+            return;
+        }
+
+        // 1. Determinar la lista maestra de actividades (por posición/índice)
+        //    igual que en getGroupReportHTML: se usa el máximo de actividades
+        //    de cualquier alumno del grupo en el periodo indicado.
+        let maxActs = 0;
+        students.forEach(s => {
+            let acts = this.getActivitiesArray(s);
+            if (filterMonth !== 'all') {
+                acts = acts.filter(act => {
+                    const d = new Date(act.date);
+                    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    return monthKey === filterMonth;
+                });
+            }
+            if (acts.length > maxActs) maxActs = acts.length;
+        });
+
+        // Construir la lista de nombres de actividades usando el mismo algoritmo que el HTML
+        const activityHeaders = [];
+        for (let i = 0; i < maxActs; i++) {
+            const studentWithAct = students.find(s => {
+                let acts = this.getActivitiesArray(s);
+                if (filterMonth !== 'all') {
+                    acts = acts.filter(act => {
+                        const d = new Date(act.date);
+                        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        return monthKey === filterMonth;
+                    });
+                }
+                return !!acts[i];
+            });
+            if (studentWithAct) {
+                let acts = this.getActivitiesArray(studentWithAct);
+                if (filterMonth !== 'all') {
+                    acts = acts.filter(act => {
+                        const d = new Date(act.date);
+                        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        return monthKey === filterMonth;
+                    });
+                }
+                activityHeaders.push(acts[i].name || `Actividad ${i + 1}`);
+            } else {
+                activityHeaders.push(`Actividad ${i + 1}`);
+            }
+        }
+
+        // 2. Construir la hoja de datos
+        //    Fila 0 (encabezado): ['Alumno', act1, act2, ..., 'Promedio']
+        //    Filas siguientes: [nombre alumno, cal1, cal2, ..., promedio]
+        const header = ['Alumno', ...activityHeaders, 'Promedio'];
+        const rows = [header];
+
+        students.forEach(student => {
+            let acts = this.getActivitiesArray(student);
+            if (filterMonth !== 'all') {
+                acts = acts.filter(act => {
+                    const d = new Date(act.date);
+                    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    return monthKey === filterMonth;
+                });
+            }
+
+            const grades = [];
+            let total = 0;
+            for (let i = 0; i < maxActs; i++) {
+                const g = acts[i] ? parseFloat(acts[i].grade) || 0 : 0;
+                grades.push(g);
+                total += g;
+            }
+            const avg = maxActs > 0 ? parseFloat((total / maxActs).toFixed(1)) : 0;
+            rows.push([student.name, ...grades, avg]);
+        });
+
+        // 3. Crear libro y hoja de Excel con SheetJS
+        if (typeof XLSX === 'undefined') {
+            this.showToast('La librería Excel no está disponible. Verifique su conexión.', 'error');
+            return;
+        }
+
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+
+        // Ajustar anchos de columna automáticamente
+        const colWidths = header.map((h, ci) => {
+            let max = h.length;
+            rows.slice(1).forEach(row => {
+                const val = row[ci] !== undefined ? String(row[ci]) : '';
+                if (val.length > max) max = val.length;
+            });
+            return { wch: Math.min(Math.max(max + 2, 10), 40) };
+        });
+        ws['!cols'] = colWidths;
+
+        const wb = XLSX.utils.book_new();
+        const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+        let sheetName = 'Calificaciones';
+        if (filterMonth !== 'all') {
+            const [year, month] = filterMonth.split('-');
+            sheetName = `${monthNames[parseInt(month) - 1]} ${year}`;
+        }
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+        const monthSuffix = filterMonth !== 'all' ? `_${filterMonth}` : '';
+        const filename = `Calificaciones_${group.name.replace(/ /g, '_')}${monthSuffix}.xlsx`;
+        XLSX.writeFile(wb, filename);
+        this.showToast('Excel descargado correctamente.', 'success');
     },
 
     downloadGroupOptions(groupId, groupName) {
