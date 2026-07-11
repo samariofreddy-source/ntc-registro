@@ -1657,10 +1657,17 @@ const app = {
                 .heading { color: #6366f1; margin: 0 0 5px 0; font-size: 20pt; }
                 .sub-heading { font-size: 13pt; border-bottom: 2px solid #6366f1; padding-bottom: 3px; color: #1e293b; margin-top: 15px; }
                 .page-break { page-break-before: always; }
+                .header-info { display: flex; gap: 30px; margin-top: 8px; margin-bottom: 15px; font-size: 10pt; color: #475569; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
+                .signature-container { display: flex; justify-content: center; margin-top: 30px; page-break-inside: avoid; }
+                .signature-box { width: 250px; text-align: center; }
             </style>
             <div class="pdf-body">
-                <h1 class="heading">Reporte de Grupo: ${group.name}${monthTitle}</h1>
-                <p style="color: #64748b; margin-bottom: 20px;">Fecha de Emisión: ${new Date().toLocaleDateString()}</p>
+                <h1 class="heading">Lista de cotejo${monthTitle}</h1>
+                <div class="header-info">
+                    <span><strong>Materia:</strong> Tecnología</span>
+                    <span><strong>Grado y Grupo:</strong> ${group.name}</span>
+                    <span><strong>Fecha de Emisión:</strong> ${new Date().toLocaleDateString()}</span>
+                </div>
                 
                 <h2 class="sub-heading">Cuadro de Calificaciones</h2>
                 <table>
@@ -1705,6 +1712,16 @@ const app = {
                     </tbody>
                 </table>
 
+                <div class="signature-container">
+                    <div class="signature-box">
+                        <div style="height: 45px;"></div>
+                        <div style="border-top: 1px solid #94a3b8; padding-top: 5px;">
+                            <p style="margin: 0; font-weight: bold; color: #1e293b; font-size: 9pt;">Freddy Samario Reyes</p>
+                            <p style="margin: 2px 0 0 0; color: #64748b; font-size: 8pt;">Nombre y Firma del Docente</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="page-break"></div>
                 <h2 class="sub-heading">Lista de Actividades</h2>
                 <table>
@@ -1725,6 +1742,16 @@ const app = {
                         `).join('')}
                     </tbody>
                 </table>
+
+                <div class="signature-container">
+                    <div class="signature-box">
+                        <div style="height: 45px;"></div>
+                        <div style="border-top: 1px solid #94a3b8; padding-top: 5px;">
+                            <p style="margin: 0; font-weight: bold; color: #1e293b; font-size: 9pt;">Freddy Samario Reyes</p>
+                            <p style="margin: 2px 0 0 0; color: #64748b; font-size: 8pt;">Nombre y Firma del Docente</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
     },
