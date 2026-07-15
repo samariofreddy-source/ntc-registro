@@ -57,6 +57,15 @@
                 </div>
             </section>
 
+            <div class="subject-tabs-container">
+                <button id="admin-subject-tecnologia" class="subject-tab active" onclick="app.switchGlobalSubject('tecnologia')">
+                    <i data-lucide="cpu"></i> Tecnología
+                </button>
+                <button id="admin-subject-robotica" class="subject-tab" onclick="app.switchGlobalSubject('robotica')">
+                    <i data-lucide="bot"></i> Robótica
+                </button>
+            </div>
+
             <div class="search-container card">
                 <div class="search-box">
                     <i data-lucide="search"></i>
@@ -128,6 +137,15 @@
                 </div>
             </header>
 
+            <div class="subject-tabs-container">
+                <button id="student-subject-tecnologia" class="subject-tab active" onclick="app.switchGlobalSubject('tecnologia')">
+                    <i data-lucide="cpu"></i> Tecnología
+                </button>
+                <button id="student-subject-robotica" class="subject-tab" onclick="app.switchGlobalSubject('robotica')">
+                    <i data-lucide="bot"></i> Robótica
+                </button>
+            </div>
+
             <div class="tabs-container admin-only">
                 <button class="tab-btn active" onclick="app.switchTab('activities')">
                     <i data-lucide="list-checks"></i> Actividades
@@ -141,6 +159,13 @@
                 <div class="registration-form card admin-only">
                     <h3>Registrar Actividad</h3>
                     <form id="form-add-activity">
+                        <div class="form-group">
+                            <label for="activity-subject">Materia</label>
+                            <select id="activity-subject" class="premium-select" required>
+                                <option value="tecnologia" selected>Tecnología</option>
+                                <option value="robotica">Robótica</option>
+                            </select>
+                        </div>
                         <div class="form-group">
                             <label for="activity-name">Nombre de la Actividad</label>
                             <input type="text" id="activity-name" placeholder="Ej. Tarea 1, Examen..."
@@ -207,6 +232,13 @@
                 <div class="registration-form card admin-only">
                     <h3>Asignar Reporte</h3>
                     <form id="form-add-report">
+                        <div class="form-group" style="margin-bottom: 15px;">
+                            <label for="report-subject">Materia</label>
+                            <select id="report-subject" class="premium-select" required>
+                                <option value="tecnologia" selected>Tecnología</option>
+                                <option value="robotica">Robótica</option>
+                            </select>
+                        </div>
                         <div class="reports-grid">
                             <label class="report-option">
                                 <input type="checkbox" name="report-type" value="falta_libro">

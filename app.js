@@ -21,6 +21,7 @@ const app = {
     },
     dataLoaded: false,
     selectedMonth: 'all',
+    currentSubject: 'tecnologia',
 
     init() {
         console.log("NTC Registro v2.5 - Iniciando...");
@@ -143,8 +144,18 @@ const app = {
                 if (g.students) {
                     g.students = Array.isArray(g.students) ? g.students : Object.values(g.students);
                     g.students.forEach(s => {
-                        if (s.activities) s.activities = Array.isArray(s.activities) ? s.activities : Object.values(s.activities);
-                        if (s.reports) s.reports = Array.isArray(s.reports) ? s.reports : Object.values(s.reports);
+                        if (s.activities) {
+                            s.activities = Array.isArray(s.activities) ? s.activities : Object.values(s.activities);
+                            s.activities.forEach(act => {
+                                if (!act.subject) act.subject = 'tecnologia';
+                            });
+                        }
+                        if (s.reports) {
+                            s.reports = Array.isArray(s.reports) ? s.reports : Object.values(s.reports);
+                            s.reports.forEach(rep => {
+                                if (!rep.subject) rep.subject = 'tecnologia';
+                            });
+                        }
                     });
                 }
             });
@@ -195,6 +206,16 @@ const app = {
         return Array.isArray(student.reports) ? student.reports : Object.values(student.reports);
     },
 
+    getFilteredActivities(student, subject = this.currentSubject) {
+        const acts = this.getActivitiesArray(student);
+        return acts.filter(act => act.subject === subject);
+    },
+
+    getFilteredReports(student, subject = this.currentSubject) {
+        const reps = this.getReportsArray(student);
+        return reps.filter(rep => rep.subject === subject);
+    },
+
     bindEvents() {
         const btnAddGroup = document.getElementById('btn-add-group');
         if (btnAddGroup) btnAddGroup.onclick = () => this.openModal('group');
@@ -236,6 +257,41 @@ const app = {
                 document.getElementById('search-results').style.display = 'none';
             }
         });
+
+        const actSubjectSelect = document.getElementById('activity-subject');
+        if (actSubjectSelect) {
+            actSubjectSelect.onchange = () => this.updateActivitySuggestions();
+        }
+    },
+
+    switchGlobalSubject(subject) {
+        this.currentSubject = subject;
+        
+        // Sync active class on tabs
+        document.querySelectorAll('.subject-tab').forEach(tab => {
+            if (tab.id.endsWith(subject)) {
+                tab.classList.add('active');
+            } else {
+                tab.classList.remove('active');
+            }
+        });
+
+        // Sync form selects if they exist
+        const actSubjectSelect = document.getElementById('activity-subject');
+        if (actSubjectSelect) actSubjectSelect.value = subject;
+
+        const repSubjectSelect = document.getElementById('report-subject');
+        if (repSubjectSelect) repSubjectSelect.value = subject;
+
+        // Refresh views
+        if (document.getElementById('view-admin').classList.contains('active')) {
+            this.renderAdmin();
+        } else if (document.getElementById('view-student').classList.contains('active')) {
+            const student = this.findStudent(this.currentStudentId);
+            if (student) {
+                this.renderStudentView(student);
+            }
+        }
     },
 
     pendingAction: null,
@@ -347,6 +403,22 @@ const app = {
         document.getElementById('display-student-name').textContent = student.name;
         document.getElementById('display-student-group').textContent = student.groupName;
 
+        // Sync active class on subject tabs
+        document.querySelectorAll('.subject-tab').forEach(tab => {
+            if (tab.id.endsWith(this.currentSubject)) {
+                tab.classList.add('active');
+            } else {
+                tab.classList.remove('active');
+            }
+        });
+
+        // Sync form selects if they exist
+        const actSubjectSelect = document.getElementById('activity-subject');
+        if (actSubjectSelect) actSubjectSelect.value = this.currentSubject;
+
+        const repSubjectSelect = document.getElementById('report-subject');
+        if (repSubjectSelect) repSubjectSelect.value = this.currentSubject;
+
         // Auto-completar nombre de actividad si ya se registró una hoy para este grupo
         const nameInput = document.getElementById('activity-name');
         if (nameInput) {
@@ -367,7 +439,7 @@ const app = {
         const selector = document.getElementById('select-month');
         if (!selector) return;
 
-        const activities = this.getActivitiesArray(student);
+        const activities = this.getFilteredActivities(student, this.currentSubject);
         const months = new Set();
         
         // También buscar meses de otros alumnos en el mismo grupo para que el selector sea consistente
@@ -375,7 +447,7 @@ const app = {
         if (group) {
             const students = this.getStudentsArray(group);
             students.forEach(s => {
-                this.getActivitiesArray(s).forEach(act => {
+                this.getFilteredActivities(s, this.currentSubject).forEach(act => {
                     if (act.date) {
                         const d = new Date(act.date);
                         const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -445,10 +517,11 @@ const app = {
 
     updateActivitySuggestions() {
         const suggestions = new Set();
+        const activeSubject = document.getElementById('activity-subject')?.value || this.currentSubject;
         this.data.groups.forEach(group => {
             const students = this.getStudentsArray(group);
             students.forEach(student => {
-                const activities = this.getActivitiesArray(student);
+                const activities = this.getFilteredActivities(student, activeSubject);
                 activities.forEach(act => {
                     suggestions.add(act.name);
                 });
@@ -476,16 +549,25 @@ const app = {
         return null;
     },
 
-    getMaxActivitiesForGroup(group) {
+    getMaxActivitiesForGroup(group, subject = this.currentSubject) {
         const students = this.getStudentsArray(group);
         if (students.length === 0) return 1;
-        const max = Math.max(...students.map(s => this.getActivitiesArray(s).length));
+        const max = Math.max(...students.map(s => this.getFilteredActivities(s, subject).length));
         return max > 0 ? max : 1;
     },
 
     renderAdmin() {
         const container = document.getElementById('groups-container');
         let groupsToRender = this.data.groups;
+
+        // Sync active class on subject tabs
+        document.querySelectorAll('.subject-tab').forEach(tab => {
+            if (tab.id.endsWith(this.currentSubject)) {
+                tab.classList.add('active');
+            } else {
+                tab.classList.remove('active');
+            }
+        });
 
         if (this.currentGroupId) {
             groupsToRender = this.data.groups.filter(g => g.id === this.currentGroupId);
@@ -498,7 +580,7 @@ const app = {
         }
 
         container.innerHTML = groupsToRender.map(group => {
-            const maxActivities = this.getMaxActivitiesForGroup(group);
+            const maxActivities = this.getMaxActivitiesForGroup(group, this.currentSubject);
             const students = this.getStudentsArray(group);
 
             return `
@@ -531,17 +613,20 @@ const app = {
                 </div>
                 <div class="students-list ${this.data.collapsedGroups.includes(group.id) ? 'collapsed' : ''}">
                     ${students.length === 0 ? '<p class="empty-state">Sin alumnos</p>' :
-                    students.map(student => `
+                    students.map(student => {
+                        const filteredActivities = this.getFilteredActivities(student, this.currentSubject);
+                        const filteredReports = this.getFilteredReports(student, this.currentSubject);
+                        return `
                         <div class="student-item">
                             <div class="student-info">
                                 <div style="display:flex; align-items:center; gap:8px">
                                     <span class="student-name">${student.name}</span>
-                                    ${(this.getReportsArray(student).length > 0) ? `<span class="student-reports-badge">${this.getReportsArray(student).length} Rep.</span>` : ''}
+                                    ${(filteredReports.length > 0) ? `<span class="student-reports-badge">${filteredReports.length} Rep.</span>` : ''}
                                     <button class="btn-icon admin-only" onclick="app.openModal('student', '${group.id}', '${student.name}', '${student.id}')" title="Editar Alumno">
                                         <i data-lucide="edit-3" style="width:12px"></i>
                                     </button>
                                 </div>
-                                <span class="student-meta">${this.getActivitiesArray(student).length} / ${maxActivities} actividades</span>
+                                <span class="student-meta">${filteredActivities.length} / ${maxActivities} actividades</span>
                             </div>
                             <div class="student-actions">
                                 <button class="btn-icon btn-nfc admin-only" onclick="app.copyNfcLink('${student.id}')" title="Copiar link para NFC">
@@ -555,7 +640,8 @@ const app = {
                                 </button>
                             </div>
                         </div>
-                    `).join('')}
+                        `;
+                    }).join('')}
                 </div>
             </div>
         `}).join('');
@@ -644,7 +730,7 @@ const app = {
     renderStudentActivities(student) {
         if (!student) return;
         const list = document.getElementById('activities-list');
-        let activities = this.getActivitiesArray(student);
+        let activities = this.getFilteredActivities(student, this.currentSubject);
         
         const group = this.data.groups.find(g => String(g.id) === String(student.groupId));
         let maxActivities = 0;
@@ -660,7 +746,7 @@ const app = {
             if (group) {
                 const students = this.getStudentsArray(group);
                 students.forEach(s => {
-                    const sActs = this.getActivitiesArray(s).filter(act => {
+                    const sActs = this.getFilteredActivities(s, this.currentSubject).filter(act => {
                         const d = new Date(act.date);
                         const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
                         return monthKey === this.selectedMonth;
@@ -669,7 +755,7 @@ const app = {
                 });
             }
         } else {
-            maxActivities = this.getMaxActivitiesForGroup(group);
+            maxActivities = this.getMaxActivitiesForGroup(group, this.currentSubject);
         }
 
         if (maxActivities === 0) maxActivities = 1;
@@ -715,8 +801,10 @@ const app = {
 
         const nameInput = document.getElementById('activity-name');
         const gradeInput = document.getElementById('activity-grade');
+        const subjectSelect = document.getElementById('activity-subject');
         const name = nameInput.value;
         const grade = gradeInput.value;
+        const subject = subjectSelect ? subjectSelect.value : 'tecnologia';
 
         // Manejo de fecha retroactiva (actividad atrasada)
         const lateSwitch = document.getElementById('activity-late');
@@ -752,6 +840,7 @@ const app = {
             id: Date.now().toString(),
             name,
             grade,
+            subject,
             date: activityDate.toISOString()
         });
         student.activities = activities;
@@ -770,6 +859,7 @@ const app = {
         // (esto ayuda si se registra otra actividad para el mismo alumno)
         nameInput.value = localStorage.getItem(`ntc_last_act_${group.id}_${today}`) || '';
         gradeInput.value = '';
+        if (subjectSelect) subjectSelect.value = 'tecnologia';
 
         // Restablecer el interruptor y ocultar la fecha retroactiva
         if (lateSwitch) {
@@ -810,6 +900,8 @@ const app = {
         }
         const checkboxes = document.querySelectorAll('input[name="report-type"]:checked');
         const reasonInput = document.getElementById('indisciplina-reason');
+        const subjectSelect = document.getElementById('report-subject');
+        const subject = subjectSelect ? subjectSelect.value : 'tecnologia';
 
         if (checkboxes.length === 0) {
             this.showToast("Seleccione al menos un tipo de reporte.", "error");
@@ -848,6 +940,7 @@ const app = {
                 type: cb.value,
                 label: label,
                 reason: reason,
+                subject: subject,
                 date: new Date().toISOString()
             });
         });
@@ -860,6 +953,7 @@ const app = {
         checkboxes.forEach(cb => cb.checked = false);
         reasonInput.value = '';
         document.getElementById('indisciplina-reason-group').style.display = 'none';
+        if (subjectSelect) subjectSelect.value = 'tecnologia';
 
         this.showToast("Reporte(s) guardado(s)", "success");
     },
@@ -867,7 +961,7 @@ const app = {
     renderStudentReports(student) {
         if (!student) return;
         const list = document.getElementById('reports-list');
-        const reports = this.getReportsArray(student);
+        const reports = this.getFilteredReports(student, this.currentSubject);
         const count = reports.length;
 
         document.getElementById('reports-total-text').textContent = `${count} Reportes`;
@@ -960,7 +1054,7 @@ const app = {
             if (group) {
                 const students = this.getStudentsArray(group);
                 students.forEach(s => {
-                    this.getActivitiesArray(s).forEach(act => {
+                    this.getFilteredActivities(s, this.currentSubject).forEach(act => {
                         if (act.date) {
                             const d = new Date(act.date);
                             const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -1009,7 +1103,7 @@ const app = {
                 if (group) {
                     const students = this.getStudentsArray(group);
                     students.forEach(s => {
-                        this.getActivitiesArray(s).forEach(act => {
+                        this.getFilteredActivities(s, this.currentSubject).forEach(act => {
                             if (act.date) {
                                 const d = new Date(act.date);
                                 const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -1227,7 +1321,8 @@ const app = {
         const student = this.findStudent(this.currentStudentId);
         const html = this.getStudentReportHTML(student, month);
         const monthSuffix = month !== 'all' ? `_${month}` : '';
-        this.execDownload(html, `Reporte_${student.name.replace(/ /g, '_')}${monthSuffix}.pdf`);
+        const subjectSuffix = this.currentSubject === 'tecnologia' ? '_Tecnologia' : '_Robotica';
+        this.execDownload(html, `Reporte_${student.name.replace(/ /g, '_')}${subjectSuffix}${monthSuffix}.pdf`);
     },
 
     printGroup(groupId, month = 'all') {
@@ -1240,7 +1335,8 @@ const app = {
         const group = this.data.groups.find(g => g.id === groupId);
         const html = this.getGroupReportHTML(group, month);
         const monthSuffix = month !== 'all' ? `_${month}` : '';
-        this.execDownload(html, `Reporte_General_${group.name.replace(/ /g, '_')}${monthSuffix}.pdf`);
+        const subjectSuffix = this.currentSubject === 'tecnologia' ? '_Tecnologia' : '_Robotica';
+        this.execDownload(html, `Reporte_General_${group.name.replace(/ /g, '_')}${subjectSuffix}${monthSuffix}.pdf`);
         // También descargar el Excel automáticamente
         this.downloadGroupExcel(groupId, month);
     },
@@ -1260,7 +1356,7 @@ const app = {
         //    de cualquier alumno del grupo en el periodo indicado.
         let maxActs = 0;
         students.forEach(s => {
-            let acts = this.getActivitiesArray(s);
+            let acts = this.getFilteredActivities(s, this.currentSubject);
             if (filterMonth !== 'all') {
                 acts = acts.filter(act => {
                     const d = new Date(act.date);
@@ -1275,7 +1371,7 @@ const app = {
         const activityHeaders = [];
         for (let i = 0; i < maxActs; i++) {
             const studentWithAct = students.find(s => {
-                let acts = this.getActivitiesArray(s);
+                let acts = this.getFilteredActivities(s, this.currentSubject);
                 if (filterMonth !== 'all') {
                     acts = acts.filter(act => {
                         const d = new Date(act.date);
@@ -1286,7 +1382,7 @@ const app = {
                 return !!acts[i];
             });
             if (studentWithAct) {
-                let acts = this.getActivitiesArray(studentWithAct);
+                let acts = this.getFilteredActivities(studentWithAct, this.currentSubject);
                 if (filterMonth !== 'all') {
                     acts = acts.filter(act => {
                         const d = new Date(act.date);
@@ -1307,7 +1403,7 @@ const app = {
         const rows = [header];
 
         students.forEach(student => {
-            let acts = this.getActivitiesArray(student);
+            let acts = this.getFilteredActivities(student, this.currentSubject);
             if (filterMonth !== 'all') {
                 acts = acts.filter(act => {
                     const d = new Date(act.date);
@@ -1373,7 +1469,7 @@ const app = {
             let foundDate = null;
             students.forEach(s => {
                 if (foundDate) return;
-                let acts = this.getActivitiesArray(s);
+                let acts = this.getFilteredActivities(s, this.currentSubject);
                 if (filterMonth !== 'all') {
                     acts = acts.filter(act => {
                         const d = new Date(act.date);
@@ -1393,7 +1489,8 @@ const app = {
         // Fila 1: Encabezados de columna
         // Filas 2+: datos
         const tableRows = [];
-        tableRows.push(['Tabla de actividades desarrolladas', '', '', '', '']);
+        const subjectLabel = this.currentSubject === 'tecnologia' ? 'Tecnología' : 'Robótica';
+        tableRows.push(['Tabla de actividades desarrolladas - ' + subjectLabel, '', '', '', '']);
         tableRows.push(['Número de Actividad', 'Título de la Actividad', 'Día', 'Mes', 'Año']);
 
         const shortMonthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -1425,7 +1522,8 @@ const app = {
         XLSX.utils.book_append_sheet(wb, ws2, 'Tabla de Actividades');
 
         const monthSuffix = filterMonth !== 'all' ? `_${filterMonth}` : '';
-        const filename = `Calificaciones_${group.name.replace(/ /g, '_')}${monthSuffix}.xlsx`;
+        const subjectSuffix = this.currentSubject === 'tecnologia' ? '_Tecnologia' : '_Robotica';
+        const filename = `Calificaciones_${group.name.replace(/ /g, '_')}${subjectSuffix}${monthSuffix}.xlsx`;
         XLSX.writeFile(wb, filename);
         this.showToast('Excel descargado correctamente.', 'success');
     },
@@ -1459,12 +1557,13 @@ const app = {
         });
 
         const monthSuffix = month !== 'all' ? `_${month}` : '';
-        this.execDownload(fullHtml, `Reportes_Individuales_${group.name.replace(/ /g, '_')}${monthSuffix}.pdf`);
+        const subjectSuffix = this.currentSubject === 'tecnologia' ? '_Tecnologia' : '_Robotica';
+        this.execDownload(fullHtml, `Reportes_Individuales_${group.name.replace(/ /g, '_')}${subjectSuffix}${monthSuffix}.pdf`);
     },
 
     getStudentReportHTML(student, filterMonth = 'all') {
-        let activities = this.getActivitiesArray(student);
-        const reports = this.getReportsArray(student);
+        let activities = this.getFilteredActivities(student, this.currentSubject);
+        const reports = this.getFilteredReports(student, this.currentSubject);
 
         // Filtrar actividades por mes si es necesario
         if (filterMonth !== 'all') {
@@ -1483,7 +1582,7 @@ const app = {
         if (group) {
             const studentsInGroup = this.getStudentsArray(group);
             studentsInGroup.forEach(s => {
-                let sActs = this.getActivitiesArray(s);
+                let sActs = this.getFilteredActivities(s, this.currentSubject);
                 if (filterMonth !== 'all') {
                     sActs = sActs.filter(act => {
                         const d = new Date(act.date);
@@ -1513,6 +1612,8 @@ const app = {
             monthTitle = ` - ${monthNames[parseInt(month) - 1]} ${year}`;
         }
 
+        const subjectLabel = this.currentSubject === 'tecnologia' ? 'Tecnología' : 'Robótica';
+
         return `
             <style>
                 .pdf-body { font-family: Arial, sans-serif; padding: 10mm; color: #1e293b; }
@@ -1528,7 +1629,7 @@ const app = {
                 .completed-msg { color: #059669; font-weight: 700; font-size: 11pt; margin-top: 5px; }
             </style>
             <div class="pdf-body">
-                <h1 class="report-title">Historial del Alumno${monthTitle}</h1>
+                <h1 class="report-title">Historial del Alumno - ${subjectLabel}${monthTitle}</h1>
                 <p><strong>Alumno:</strong> ${student.name}</p>
                 <p><strong>Grupo:</strong> ${student.groupName || '-'}</p>
                 <p><strong>Fecha de Emisión:</strong> ${new Date().toLocaleDateString()}</p>
@@ -1596,7 +1697,7 @@ const app = {
         let maxActs = 0;
         if (filterMonth !== 'all') {
             students.forEach(s => {
-                const sActs = this.getActivitiesArray(s).filter(act => {
+                const sActs = this.getFilteredActivities(s, this.currentSubject).filter(act => {
                     const d = new Date(act.date);
                     const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
                     return monthKey === filterMonth;
@@ -1604,13 +1705,13 @@ const app = {
                 if (sActs.length > maxActs) maxActs = sActs.length;
             });
         } else {
-            maxActs = this.getMaxActivitiesForGroup(group);
+            maxActs = this.getMaxActivitiesForGroup(group, this.currentSubject);
         }
 
         let activityList = [];
         for (let i = 0; i < maxActs; i++) {
             const studentWithAct = students.find(s => {
-                let acts = this.getActivitiesArray(s);
+                let acts = this.getFilteredActivities(s, this.currentSubject);
                 if (filterMonth !== 'all') {
                     acts = acts.filter(act => {
                         const d = new Date(act.date);
@@ -1623,7 +1724,7 @@ const app = {
             
             let sample = null;
             if (studentWithAct) {
-                let acts = this.getActivitiesArray(studentWithAct);
+                let acts = this.getFilteredActivities(studentWithAct, this.currentSubject);
                 if (filterMonth !== 'all') {
                     acts = acts.filter(act => {
                         const d = new Date(act.date);
@@ -1648,6 +1749,8 @@ const app = {
             monthTitle = ` - ${monthNames[parseInt(month) - 1]} ${year}`;
         }
 
+        const subjectLabel = this.currentSubject === 'tecnologia' ? 'Tecnología' : 'Robótica';
+
         return `
             <style>
                 .pdf-body { font-family: Arial, sans-serif; padding: 10mm; color: #1e293b; width: 100%; box-sizing: border-box; }
@@ -1664,7 +1767,7 @@ const app = {
             <div class="pdf-body">
                 <h1 class="heading">Lista de cotejo${monthTitle}</h1>
                 <div class="header-info">
-                    <span><strong>Materia:</strong> Tecnología</span>
+                    <span><strong>Materia:</strong> ${subjectLabel}</span>
                     <span><strong>Grado y Grupo:</strong> ${group.name}</span>
                     <span><strong>Fecha de Emisión:</strong> ${new Date().toLocaleDateString()}</span>
                 </div>
@@ -1682,7 +1785,7 @@ const app = {
                     <tbody>
                         ${students.map(student => {
             let total = 0;
-            let acts = this.getActivitiesArray(student);
+            let acts = this.getFilteredActivities(student, this.currentSubject);
             if (filterMonth !== 'all') {
                 acts = acts.filter(act => {
                     const d = new Date(act.date);
@@ -1690,7 +1793,7 @@ const app = {
                     return monthKey === filterMonth;
                 });
             }
-            const reports = this.getReportsArray(student);
+            const reports = this.getFilteredReports(student, this.currentSubject);
             const studentGrades = [];
 
             for (let i = 0; i < maxActs; i++) {
