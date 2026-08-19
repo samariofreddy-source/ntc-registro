@@ -606,6 +606,9 @@ const app = {
                         <button class="btn-icon" onclick="app.printGroup('${group.id}')" title="Imprimir Reporte">
                             <i data-lucide="printer"></i>
                         </button>
+                        <button class="btn-icon admin-only" onclick="app.openModal('import-students', '${group.id}', '${group.name}')" title="Importar Alumnos (Excel, PDF o Foto)">
+                            <i data-lucide="file-up"></i>
+                        </button>
                         <button class="btn-icon" onclick="app.openModal('student', '${group.id}')" title="Agregar Alumno">
                             <i data-lucide="user-plus"></i>
                         </button>
@@ -1167,6 +1170,58 @@ const app = {
                 </div>
             `;
             if (confirmBtn) confirmBtn.style.display = 'none';
+        } else if (type === 'import-students') {
+            const group = this.data.groups.find(g => String(g.id) === String(targetId));
+            const gName = group ? group.name : currentName;
+            title.textContent = `Importar Alumnos a ${gName}`;
+            this.pendingImportNames = [];
+            this.importTargetGroupId = targetId;
+            this.activeImportMode = 'excel';
+
+            content.innerHTML = `
+                <div class="import-tabs">
+                    <button id="import-tab-excel" class="import-tab-btn active" onclick="app.switchImportTab('excel')">
+                        <i data-lucide="file-spreadsheet"></i> Excel / CSV
+                    </button>
+                    <button id="import-tab-pdf" class="import-tab-btn" onclick="app.switchImportTab('pdf')">
+                        <i data-lucide="file-text"></i> PDF
+                    </button>
+                    <button id="import-tab-photo" class="import-tab-btn" onclick="app.switchImportTab('photo')">
+                        <i data-lucide="camera"></i> Foto / Imagen
+                    </button>
+                </div>
+
+                <div id="import-section-upload">
+                    <div id="import-dropzone" class="import-dropzone" onclick="document.getElementById('import-file-input').click()" ondragover="event.preventDefault(); this.classList.add('dragover');" ondragleave="this.classList.remove('dragover');" ondrop="app.handleImportDrop(event)">
+                        <i id="import-icon" data-lucide="upload-cloud"></i>
+                        <p id="import-dropzone-text" style="font-size: 0.9rem; color: var(--text-muted);">
+                            Haz clic o arrastra aquí tu archivo <b>Excel (.xlsx, .csv)</b>
+                        </p>
+                        <span style="font-size: 0.78rem; color: var(--text-muted); opacity: 0.8;">Procesamiento local 100% privado y seguro.</span>
+                        <input type="file" id="import-file-input" style="display:none;" accept=".xlsx, .xls, .csv" onchange="app.handleImportFileSelect(this.files[0])">
+                    </div>
+                </div>
+
+                <div id="import-status-container" style="display:none; text-align:center; margin: 15px 0;">
+                    <div class="import-spinner" style="margin: 0 auto 10px auto;"></div>
+                    <p id="import-status-text" style="font-size: 0.88rem; color: var(--accent);">Procesando archivo...</p>
+                </div>
+
+                <div id="import-preview-section" style="display:none; margin-top: 15px;">
+                    <div class="import-preview-header">
+                        <strong style="font-size: 0.9rem; color: var(--text-main);">Alumnos detectados (<span id="import-count-text">0</span>):</strong>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn-text" onclick="app.toggleAllImportItems(true)" style="font-size: 0.78rem; padding: 2px 6px;">Seleccionar todos</button>
+                            <button class="btn-text" onclick="app.toggleAllImportItems(false)" style="font-size: 0.78rem; padding: 2px 6px;">Desmarcar todos</button>
+                        </div>
+                    </div>
+                    <div id="import-preview-container" class="import-preview-container"></div>
+                </div>
+            `;
+            if (confirmBtn) {
+                confirmBtn.style.display = 'none';
+                confirmBtn.textContent = 'Agregar Alumnos al Grupo';
+            }
         }
         lucide.createIcons();
     },
@@ -1236,6 +1291,9 @@ const app = {
             const pinInput = document.getElementById('input-pin');
             const pin = pinInput ? pinInput.value : '';
             this.verifyPin(pin);
+            return;
+        } else if (ctx.type === 'import-students') {
+            this.confirmImport(ctx.targetId);
             return;
         }
 
@@ -1380,6 +1438,294 @@ const app = {
             this.renderAdmin();
             this.showToast("Base de datos reiniciada completamente.", "success");
         }
+    },
+
+    switchImportTab(mode) {
+        this.activeImportMode = mode;
+        const btnExcel = document.getElementById('import-tab-excel');
+        const btnPdf = document.getElementById('import-tab-pdf');
+        const btnPhoto = document.getElementById('import-tab-photo');
+        const fileInput = document.getElementById('import-file-input');
+        const dropText = document.getElementById('import-dropzone-text');
+
+        [btnExcel, btnPdf, btnPhoto].forEach(b => b && b.classList.remove('active'));
+
+        if (mode === 'excel') {
+            if (btnExcel) btnExcel.classList.add('active');
+            if (fileInput) fileInput.accept = ".xlsx, .xls, .csv";
+            if (dropText) dropText.innerHTML = "Haz clic o arrastra aquí tu archivo <b>Excel (.xlsx, .csv)</b>";
+        } else if (mode === 'pdf') {
+            if (btnPdf) btnPdf.classList.add('active');
+            if (fileInput) fileInput.accept = ".pdf";
+            if (dropText) dropText.innerHTML = "Haz clic o arrastra aquí tu documento <b>PDF (.pdf)</b>";
+        } else if (mode === 'photo') {
+            if (btnPhoto) btnPhoto.classList.add('active');
+            if (fileInput) fileInput.accept = "image/*";
+            if (dropText) dropText.innerHTML = "Haz clic o arrastra aquí una <b>Foto o Imagen de la lista</b>";
+        }
+    },
+
+    handleImportDrop(e) {
+        e.preventDefault();
+        const dropzone = document.getElementById('import-dropzone');
+        if (dropzone) dropzone.classList.remove('dragover');
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            this.handleImportFileSelect(e.dataTransfer.files[0]);
+        }
+    },
+
+    handleImportFileSelect(file) {
+        if (!file) return;
+
+        const statusContainer = document.getElementById('import-status-container');
+        const statusText = document.getElementById('import-status-text');
+        const previewSection = document.getElementById('import-preview-section');
+        const confirmBtn = document.getElementById('modal-confirm');
+
+        if (statusContainer) statusContainer.style.display = 'block';
+        if (previewSection) previewSection.style.display = 'none';
+        if (confirmBtn) confirmBtn.style.display = 'none';
+
+        const ext = file.name.split('.').pop().toLowerCase();
+
+        if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') {
+            if (statusText) statusText.textContent = "Leyendo archivo Excel...";
+            this.processExcelFile(file);
+        } else if (ext === 'pdf') {
+            if (statusText) statusText.textContent = "Extrayendo texto del PDF...";
+            this.processPdfFile(file);
+        } else if (['png', 'jpg', 'jpeg', 'webp', 'bmp'].includes(ext) || file.type.startsWith('image/')) {
+            if (statusText) statusText.textContent = "Analizando foto con OCR... esto tomará unos segundos.";
+            this.processPhotoFile(file);
+        } else {
+            if (statusContainer) statusContainer.style.display = 'none';
+            this.showToast("Formato de archivo no soportado.", "error");
+        }
+    },
+
+    processExcelFile(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                let rawLines = [];
+                json.forEach(row => {
+                    if (Array.isArray(row)) {
+                        row.forEach(cell => {
+                            if (cell && typeof cell === 'string') {
+                                rawLines.push(cell.trim());
+                            } else if (cell && typeof cell === 'number') {
+                                rawLines.push(String(cell));
+                            }
+                        });
+                    }
+                });
+
+                const names = this.cleanAndParseNames(rawLines);
+                this.renderImportPreview(names);
+            } catch (err) {
+                console.error("Error al leer Excel:", err);
+                this.showToast("Error al procesar el archivo de Excel.", "error");
+                document.getElementById('import-status-container').style.display = 'none';
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    },
+
+    processPdfFile(file) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                if (!window.pdfjsLib) {
+                    throw new Error("PDF.js no está disponible.");
+                }
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                const typedarray = new Uint8Array(e.target.result);
+                const pdf = await window.pdfjsLib.getDocument({ data: typedarray }).promise;
+                let rawTextLines = [];
+
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
+                    const pageLines = textContent.items.map(item => item.str);
+                    rawTextLines = rawTextLines.concat(pageLines);
+                }
+
+                const names = this.cleanAndParseNames(rawTextLines);
+                this.renderImportPreview(names);
+            } catch (err) {
+                console.error("Error al leer PDF:", err);
+                this.showToast("Error al procesar el PDF. Asegúrate de que contenga texto.", "error");
+                document.getElementById('import-status-container').style.display = 'none';
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    },
+
+    processPhotoFile(file) {
+        if (!window.Tesseract) {
+            this.showToast("Librería OCR no disponible.", "error");
+            document.getElementById('import-status-container').style.display = 'none';
+            return;
+        }
+
+        const statusText = document.getElementById('import-status-text');
+
+        window.Tesseract.recognize(
+            file,
+            'spa',
+            {
+                logger: m => {
+                    if (m.status === 'recognizing text' && statusText) {
+                        const pct = Math.round((m.progress || 0) * 100);
+                        statusText.textContent = `Analizando foto con OCR... ${pct}%`;
+                    }
+                }
+            }
+        ).then(({ data: { text } }) => {
+            const rawLines = text.split('\n');
+            const names = this.cleanAndParseNames(rawLines);
+            this.renderImportPreview(names);
+        }).catch(err => {
+            console.error("Error en Tesseract OCR:", err);
+            this.showToast("Error al analizar la imagen con OCR.", "error");
+            document.getElementById('import-status-container').style.display = 'none';
+        });
+    },
+
+    cleanAndParseNames(lines) {
+        const ignoreKeywords = [
+            'nombre', 'alumnos', 'lista', 'asistencia', 'materia', 'profesor', 'maestro',
+            'grupo', 'grado', 'escuela', 'colegio', 'ciclo', 'fecha', 'firma', 'calificacion',
+            'promedio', 'examen', 'tarea', 'reporte', 'folio', 'no.', 'num', 'tecnologia', 'robotica'
+        ];
+
+        const names = [];
+        lines.forEach(line => {
+            if (!line || typeof line !== 'string') return;
+
+            let clean = line.trim();
+
+            // Quitar numeración inicial tipo "1. ", "01.- ", "1) ", "1 - "
+            clean = clean.replace(/^[0-9]{1,3}\s*[\.\-\)]\s*/, '').trim();
+            clean = clean.replace(/^[0-9]{1,3}\s+/, '').trim();
+
+            if (clean.length < 3) return; // Ignorar muy cortos
+            if (/^[0-9\/\-\.\,\s]+$/.test(clean)) return; // Ignorar si son solo números o fechas
+
+            const lower = clean.toLowerCase();
+            const containsIgnoredWord = ignoreKeywords.some(kw => lower === kw || lower.startsWith(kw + ' ') || lower.includes('lista de'));
+            if (containsIgnoredWord) return;
+
+            // Formatear a Capital Case si está todo en minúsculas o todo mayúsculas
+            if (clean === clean.toLowerCase() || clean === clean.toUpperCase()) {
+                clean = clean.toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            }
+
+            if (!names.includes(clean)) {
+                names.push(clean);
+            }
+        });
+
+        return names;
+    },
+
+    renderImportPreview(names) {
+        const statusContainer = document.getElementById('import-status-container');
+        const previewSection = document.getElementById('import-preview-section');
+        const previewContainer = document.getElementById('import-preview-container');
+        const countText = document.getElementById('import-count-text');
+        const confirmBtn = document.getElementById('modal-confirm');
+
+        if (statusContainer) statusContainer.style.display = 'none';
+
+        if (!names || names.length === 0) {
+            this.showToast("No se encontraron nombres válidos de alumnos.", "error");
+            return;
+        }
+
+        this.pendingImportNames = names;
+
+        if (countText) countText.textContent = names.length;
+        if (previewContainer) {
+            previewContainer.innerHTML = names.map((name, index) => `
+                <div class="import-preview-item">
+                    <input type="checkbox" id="import-check-${index}" checked style="width: 18px; height: 18px; cursor: pointer;">
+                    <input type="text" id="import-name-${index}" value="${name}">
+                    <button class="btn-icon danger" onclick="this.parentElement.remove(); app.updateImportCount();" title="Eliminar de la lista" style="padding: 2px;">
+                        <i data-lucide="x" style="width: 16px; height: 16px;"></i>
+                    </button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        if (previewSection) previewSection.style.display = 'block';
+        if (confirmBtn) confirmBtn.style.display = 'block';
+    },
+
+    toggleAllImportItems(checked) {
+        const container = document.getElementById('import-preview-container');
+        if (!container) return;
+        container.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = checked);
+    },
+
+    updateImportCount() {
+        const container = document.getElementById('import-preview-container');
+        const countText = document.getElementById('import-count-text');
+        if (container && countText) {
+            const count = container.querySelectorAll('.import-preview-item').length;
+            countText.textContent = count;
+        }
+    },
+
+    confirmImport(groupId) {
+        const container = document.getElementById('import-preview-container');
+        if (!container) return;
+
+        const items = container.querySelectorAll('.import-preview-item');
+        const selectedNames = [];
+
+        items.forEach(item => {
+            const cb = item.querySelector('input[type="checkbox"]');
+            const nameInput = item.querySelector('input[type="text"]');
+            if (cb && cb.checked && nameInput && nameInput.value.trim()) {
+                selectedNames.push(nameInput.value.trim());
+            }
+        });
+
+        if (selectedNames.length === 0) {
+            this.showToast("Seleccione al menos un alumno para importar.", "error");
+            return;
+        }
+
+        const group = this.data.groups.find(g => String(g.id) === String(groupId));
+        if (!group) {
+            this.showToast("No se encontró el grupo de destino.", "error");
+            return;
+        }
+
+        if (!group.students) group.students = [];
+        if (!Array.isArray(group.students)) group.students = this.getStudentsArray(group);
+
+        selectedNames.forEach(name => {
+            group.students.push({
+                id: Math.random().toString(36).substr(2, 9),
+                name: name,
+                activities: [],
+                reports: []
+            });
+        });
+
+        this.saveData();
+        this.closeModal();
+        this.renderAdmin();
+        this.showToast(`¡Se agregaron ${selectedNames.length} alumnos a ${group.name}!`, "success");
     },
 
     // Printing Logic
