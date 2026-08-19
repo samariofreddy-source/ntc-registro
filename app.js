@@ -1141,7 +1141,34 @@ const app = {
                 </div>
             `;
             if (confirmBtn) confirmBtn.style.display = 'none';
+        } else if (type === 'reset-cycle') {
+            title.textContent = 'Reiniciar Ciclo Escolar';
+            content.innerHTML = `
+                <p style="margin-bottom: 15px; color: var(--text-muted); font-size: 0.9rem;">
+                    Seleccione qué información desea eliminar para iniciar el nuevo ciclo escolar:
+                </p>
+                
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <button class="btn-secondary" onclick="app.resetData('activities_only')" style="justify-content: flex-start; padding: 14px; border: 1px solid rgba(56, 189, 248, 0.3); background: rgba(56, 189, 248, 0.08); text-align: left; width: 100%; cursor: pointer;">
+                        <i data-lucide="rotate-ccw" style="color: var(--accent); width: 24px; height: 24px; flex-shrink: 0; margin-right: 10px;"></i>
+                        <div>
+                            <strong style="display: block; color: var(--text-main); font-size: 0.95rem;">Borrar Actividades y Reportes</strong>
+                            <span style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-top: 2px;">Conserva los grupos y nombres de alumnos, eliminando todas sus tareas, calificaciones y reportes.</span>
+                        </div>
+                    </button>
+
+                    <button class="btn-danger-outline" onclick="app.resetData('all')" style="justify-content: flex-start; padding: 14px; text-align: left; width: 100%; cursor: pointer;">
+                        <i data-lucide="trash-2" style="color: var(--danger); width: 24px; height: 24px; flex-shrink: 0; margin-right: 10px;"></i>
+                        <div>
+                            <strong style="display: block; color: #f87171; font-size: 0.95rem;">Eliminar Todo (Base de Datos Completa)</strong>
+                            <span style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-top: 2px;">Borra todos los grupos, alumnos, actividades y reportes desde cero.</span>
+                        </div>
+                    </button>
+                </div>
+            `;
+            if (confirmBtn) confirmBtn.style.display = 'none';
         }
+        lucide.createIcons();
     },
 
     closeModal() {
@@ -1297,6 +1324,62 @@ const app = {
         group.students = group.students.filter(s => s.id !== studentId);
         this.saveData();
         this.renderAdmin();
+    },
+
+    resetData(type) {
+        if (!this.isAdmin) {
+            this.showToast("Acceso denegado: Se requieren permisos de maestro.", "error");
+            return;
+        }
+
+        if (type === 'activities_only') {
+            const confirmClear = confirm(
+                "⚠️ ¿Estás seguro de que deseas eliminar TODAS las actividades y reportes de todos los alumnos?\n\n" +
+                "Se mantendrán los grupos y los nombres de los alumnos intactos para el nuevo ciclo escolar."
+            );
+            if (!confirmClear) return;
+
+            this.data.groups.forEach(g => {
+                const students = this.getStudentsArray(g);
+                students.forEach(s => {
+                    s.activities = [];
+                    s.reports = [];
+                });
+            });
+
+            // Limpiar datos temporales en localStorage
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('ntc_last_act_')) {
+                    localStorage.removeItem(key);
+                }
+            });
+
+            this.saveData();
+            this.closeModal();
+            this.renderAdmin();
+            this.showToast("¡Actividades y reportes eliminados para el nuevo ciclo escolar!", "success");
+        } else if (type === 'all') {
+            const confirmClear = confirm(
+                "🚨 ¡ATENCIÓN! Estás a punto de ELIMINAR TODO.\n\n" +
+                "Se borrarán todos los grupos, todos los alumnos y todos sus registros.\n\n" +
+                "¿Deseas continuar?"
+            );
+            if (!confirmClear) return;
+
+            this.data.groups = [];
+            this.data.collapsedGroups = [];
+
+            Object.keys(localStorage).forEach(key => {
+                if (key.startsWith('ntc_last_act_') || key === 'ntc_collapsed_groups') {
+                    localStorage.removeItem(key);
+                }
+            });
+
+            this.saveData();
+            this.closeModal();
+            this.renderAdmin();
+            this.showToast("Base de datos reiniciada completamente.", "success");
+        }
     },
 
     // Printing Logic

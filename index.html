@@ -21,7 +21,7 @@
     <!-- SheetJS (xlsx) para exportar a Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=2.7">
+    <link rel="stylesheet" href="style.css?v=2.8">
 </head>
 
 <body>
@@ -39,6 +39,9 @@
                     </button>
                     <button id="btn-logout" class="btn-secondary admin-only" onclick="appLogout()">
                         <i data-lucide="unlock"></i>
+                    </button>
+                    <button id="btn-reset-cycle" class="btn-danger-outline admin-only" onclick="app.openModal('reset-cycle')" title="Reiniciar Ciclo Escolar">
+                        <i data-lucide="rotate-ccw"></i> Reiniciar Ciclo
                     </button>
                     <button id="btn-add-group" class="btn-primary admin-only">
                         <i data-lucide="plus"></i> Nuevo Grupo
@@ -323,8 +326,8 @@
     <div id="toast-container" class="toast-container"></div>
     <div
         style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: var(--text-muted); opacity: 0.5; z-index: 9999;">
-        v2.7</div>
-    <script type="module" src="app.js?v=2.7"></script>
+        v2.8</div>
+    <script type="module" src="app.js?v=2.8"></script>
 </body>
 
 </html>
