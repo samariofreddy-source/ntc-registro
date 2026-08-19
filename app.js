@@ -24,7 +24,7 @@ const app = {
     currentSubject: 'tecnologia',
 
     init() {
-        console.log("FreddyAppRegistro v3.0 - Iniciando...");
+        console.log("FreddyApp v3.1 - Iniciando...");
         this.bindEvents();
         this.checkAdminSession(); // Verificar si ya hay una sesión activa
         this.loadData(); // loadData ahora llamará a checkRoute cuando los datos lleguen
@@ -1944,7 +1944,7 @@ const app = {
 
     execPrint(html) {
         const printWindow = window.open('', '_blank');
-        printWindow.document.write(`<html><head><title>FreddyAppRegistro - Reporte</title></head><body>${html}</body></html>`);
+        printWindow.document.write(`<html><head><title>FreddyApp - Reporte</title></head><body>${html}</body></html>`);
         printWindow.document.close();
         printWindow.focus();
         setTimeout(() => {
