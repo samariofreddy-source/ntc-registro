@@ -1567,7 +1567,7 @@ const app = {
         reader.readAsArrayBuffer(file);
     },
 
-    processPhotoFile(file) {
+    async processPhotoFile(file) {
         if (!window.Tesseract) {
             this.showToast("Librería OCR no disponible.", "error");
             document.getElementById('import-status-container').style.display = 'none';
@@ -1576,25 +1576,94 @@ const app = {
 
         const statusText = document.getElementById('import-status-text');
 
-        window.Tesseract.recognize(
-            file,
-            'spa',
-            {
+        try {
+            if (statusText) statusText.textContent = "Optimizando contraste e imagen...";
+            const processedBlob = await this.preprocessImageForOCR(file);
+
+            if (statusText) statusText.textContent = "Cargando motor de lectura OCR...";
+
+            const worker = await window.Tesseract.createWorker('spa', 1, {
                 logger: m => {
                     if (m.status === 'recognizing text' && statusText) {
                         const pct = Math.round((m.progress || 0) * 100);
-                        statusText.textContent = `Analizando foto con OCR... ${pct}%`;
+                        statusText.textContent = `Analizando nombres en la foto... ${pct}%`;
                     }
                 }
-            }
-        ).then(({ data: { text } }) => {
+            });
+
+            // Restringir reconocedor exclusivamente a letras en español y espacios (sin símbolos ni números que dañen nombres)
+            await worker.setParameters({
+                tessedit_char_whitelist: 'ABCDEFGHIJKLMNÑOPQRSTUVWXYZabcdefghijklmnñopqrstuvwxyzÁÉÍÓÚáéíóúñÑ. -',
+            });
+
+            const { data: { text } } = await worker.recognize(processedBlob);
+            await worker.terminate();
+
             const rawLines = text.split('\n');
             const names = this.cleanAndParseNames(rawLines);
             this.renderImportPreview(names);
-        }).catch(err => {
-            console.error("Error en Tesseract OCR:", err);
-            this.showToast("Error al analizar la imagen con OCR.", "error");
-            document.getElementById('import-status-container').style.display = 'none';
+        } catch (err) {
+            console.error("Error en Tesseract OCR avanzado:", err);
+            // Fallback a reconocedor básico
+            window.Tesseract.recognize(file, 'spa')
+                .then(({ data: { text } }) => {
+                    const rawLines = text.split('\n');
+                    const names = this.cleanAndParseNames(rawLines);
+                    this.renderImportPreview(names);
+                })
+                .catch(fallbackErr => {
+                    console.error("Error en fallback OCR:", fallbackErr);
+                    this.showToast("Error al analizar la imagen.", "error");
+                    document.getElementById('import-status-container').style.display = 'none';
+                });
+        }
+    },
+
+    preprocessImageForOCR(file) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            const url = URL.createObjectURL(file);
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                let width = img.width;
+                let height = img.height;
+                const maxDim = 2000;
+                if (width > maxDim || height > maxDim) {
+                    if (width > height) {
+                        height = Math.round((height * maxDim) / width);
+                        width = maxDim;
+                    } else {
+                        width = Math.round((width * maxDim) / height);
+                        height = maxDim;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                ctx.drawImage(img, 0, 0, width, height);
+                const imgData = ctx.getImageData(0, 0, width, height);
+                const data = imgData.data;
+
+                // Aumentar contraste para hacer el texto impreso nítido y claro
+                for (let i = 0; i < data.length; i += 4) {
+                    const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                    const v = avg < 140 ? Math.max(0, avg - 35) : Math.min(255, avg + 35);
+                    data[i] = v;
+                    data[i + 1] = v;
+                    data[i + 2] = v;
+                }
+                ctx.putImageData(imgData, 0, 0);
+
+                canvas.toBlob((blob) => {
+                    resolve(blob || file);
+                }, 'image/png');
+            };
+            img.onerror = () => resolve(file);
+            img.src = url;
         });
     },
 
@@ -1612,23 +1681,30 @@ const app = {
             let clean = line.trim();
 
             // Quitar numeración inicial tipo "1. ", "01.- ", "1) ", "1 - "
-            clean = clean.replace(/^[0-9]{1,3}\s*[\.\-\)]\s*/, '').trim();
+            clean = clean.replace(/^[0-9]{1,3}\s*[\.\-\)\:]\s*/, '').trim();
             clean = clean.replace(/^[0-9]{1,3}\s+/, '').trim();
 
+            // Filtrar cualquier símbolo extraño que no pertenezca al idioma español
+            clean = clean.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s\.\-]/g, '').trim();
+
+            // Normalizar múltiples espacios intermedios
+            clean = clean.replace(/\s+/g, ' ');
+
             if (clean.length < 3) return; // Ignorar muy cortos
-            if (/^[0-9\/\-\.\,\s]+$/.test(clean)) return; // Ignorar si son solo números o fechas
+            if (/^[0-9\/\-\.\,\s]+$/.test(clean)) return; // Ignorar si son solo números
 
             const lower = clean.toLowerCase();
             const containsIgnoredWord = ignoreKeywords.some(kw => lower === kw || lower.startsWith(kw + ' ') || lower.includes('lista de'));
             if (containsIgnoredWord) return;
 
-            // Formatear a Capital Case si está todo en minúsculas o todo mayúsculas
-            if (clean === clean.toLowerCase() || clean === clean.toUpperCase()) {
-                clean = clean.toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-            }
+            // Formatear respetando la ortografía original y tildes en Capital Case
+            const formatted = clean.split(' ').map(word => {
+                if (!word) return '';
+                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+            }).filter(Boolean).join(' ');
 
-            if (!names.includes(clean)) {
-                names.push(clean);
+            if (formatted.length >= 3 && !names.includes(formatted)) {
+                names.push(formatted);
             }
         });
 
