@@ -518,6 +518,36 @@ const app = {
         }
     },
 
+    prepareDeliverActivity(actName) {
+        if (!this.isAdmin) {
+            this.showToast("Debe iniciar sesión para registrar entregas.", "error");
+            this.login();
+            return;
+        }
+
+        const nameInput = document.getElementById('activity-name');
+        const subjectSelect = document.getElementById('activity-subject');
+        const gradeInput = document.getElementById('activity-grade');
+        const form = document.querySelector('.registration-form');
+
+        if (nameInput) nameInput.value = actName;
+        if (subjectSelect) subjectSelect.value = this.currentSubject;
+
+        // Reset grade selection
+        if (gradeInput) gradeInput.value = '';
+        document.querySelectorAll('.btn-grade').forEach(btn => btn.classList.remove('selected'));
+
+        // Scroll into view & animate form
+        if (form) {
+            form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            form.classList.remove('highlight-form');
+            void form.offsetWidth;
+            form.classList.add('highlight-form');
+        }
+
+        this.showToast(`Entregando "${actName}". Seleccione la calificación.`, "info");
+    },
+
     switchTab(tabName) {
         // Actualizar botones
         document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1002,13 +1032,18 @@ const app = {
                                 Actividades Faltantes (${missingActivities.length})
                             </h4>
                         </div>
-                        <p class="student-meta" style="margin-top: 4px; font-size: 0.8rem;">Actividades registradas en el grupo que este alumno aún no realiza:</p>
+                        <p class="student-meta" style="margin-top: 4px; font-size: 0.8rem;">Haga clic en "Entregar" para calificar una tarea pendiente:</p>
                         <div class="missing-activities-list">
                             ${missingActivities.map(actName => `
-                                <span class="missing-tag">
-                                    <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
-                                    ${actName}
-                                </span>
+                                <div class="missing-activity-item" onclick="app.prepareDeliverActivity('${actName.replace(/'/g, "\\'")}')" title="Entregar esta actividad">
+                                    <span class="missing-tag">
+                                        <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
+                                        ${actName}
+                                    </span>
+                                    <button class="btn-deliver-small admin-only" type="button">
+                                        <i data-lucide="plus-circle" style="width: 14px; height: 14px;"></i> Entregar
+                                    </button>
+                                </div>
                             `).join('')}
                         </div>
                     </div>

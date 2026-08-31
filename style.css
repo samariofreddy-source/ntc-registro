@@ -1207,4 +1207,59 @@ input:checked + .slider:before {
     margin-top: 16px;
 }
 
+.missing-activity-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 20px;
+    padding: 4px 6px 4px 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.missing-activity-item:hover {
+    background: rgba(245, 158, 11, 0.25);
+    border-color: rgba(245, 158, 11, 0.5);
+    transform: translateY(-1px);
+}
+
+.missing-activity-item .missing-tag {
+    background: transparent;
+    border: none;
+    padding: 0;
+    color: #fbbf24;
+}
+
+.btn-deliver-small {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.btn-deliver-small:hover {
+    background: var(--primary-hover);
+}
+
+.registration-form.highlight-form {
+    animation: formPulse 1.2s ease;
+}
+
+@keyframes formPulse {
+    0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.8); }
+    50% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0.3); }
+    100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+}
+
+
 
