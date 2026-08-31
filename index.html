@@ -121,9 +121,19 @@
                 <button class="btn-back" onclick="app.showAdmin()">
                     <i data-lucide="arrow-left"></i> Volver
                 </button>
-                <div class="student-info-header">
-                    <h2 id="display-student-name">Nombre del Alumno</h2>
-                    <p id="display-student-group">Grupo</p>
+                <div class="student-info-header" style="display: flex; align-items: center; justify-content: space-between; flex: 1; margin: 0 10px;">
+                    <div>
+                        <h2 id="display-student-name">Nombre del Alumno</h2>
+                        <p id="display-student-group">Grupo</p>
+                    </div>
+                    <div class="student-nav-buttons" style="display: flex; gap: 4px;">
+                        <button class="btn-icon" onclick="app.navigateStudent(-1)" title="Alumno Anterior">
+                            <i data-lucide="chevron-left"></i>
+                        </button>
+                        <button class="btn-icon" onclick="app.navigateStudent(1)" title="Alumno Siguiente">
+                            <i data-lucide="chevron-right"></i>
+                        </button>
+                    </div>
                 </div>
                 <div style="display: flex; gap: 8px;">
                     <button class="btn-icon guest-only" onclick="appLogin()" title="Desbloquear">

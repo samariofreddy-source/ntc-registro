@@ -22,6 +22,8 @@ const app = {
     dataLoaded: false,
     selectedMonth: 'all',
     currentSubject: 'tecnologia',
+    lastScrollY: 0,
+    lastVisitedStudentId: null,
 
     init() {
         console.log("FreddyApp v3.1 - Iniciando...");
@@ -341,6 +343,25 @@ const app = {
         document.body.classList.remove('is-group-isolated');
         window.location.hash = '';
         this.renderAdmin();
+        this.restoreAdminScroll();
+    },
+
+    restoreAdminScroll() {
+        setTimeout(() => {
+            if (this.lastVisitedStudentId) {
+                const studentEl = document.querySelector(`[data-student-id="${this.lastVisitedStudentId}"]`);
+                if (studentEl) {
+                    studentEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    studentEl.classList.remove('highlight-student');
+                    void studentEl.offsetWidth;
+                    studentEl.classList.add('highlight-student');
+                    return;
+                }
+            }
+            if (this.lastScrollY) {
+                window.scrollTo({ top: this.lastScrollY, behavior: 'smooth' });
+            }
+        }, 120);
     },
 
     isolateGroup(groupId) {
@@ -356,9 +377,15 @@ const app = {
         document.getElementById('current-group-title').textContent = group.name;
         document.body.classList.add('is-group-isolated');
         this.renderAdmin();
+        this.restoreAdminScroll();
     },
 
     showStudent(studentId, autoAdd = false) {
+        if (document.getElementById('view-admin').classList.contains('active')) {
+            this.lastScrollY = window.scrollY;
+        }
+        this.lastVisitedStudentId = studentId;
+
         this.currentStudentId = studentId;
 
         // 1. Cambiar a la vista de alumno inmediatamente
@@ -395,6 +422,29 @@ const app = {
             } else {
                 this.pendingAction = null;
                 this.focusActivityForm();
+            }
+        }
+    },
+
+    navigateStudent(direction) {
+        const studentRef = this.findStudent(this.currentStudentId);
+        if (!studentRef) return;
+
+        const group = this.data.groups.find(g => String(g.id) === String(studentRef.groupId));
+        if (!group) return;
+
+        const students = this.getStudentsArray(group);
+        const currentIndex = students.findIndex(s => String(s.id) === String(studentRef.id));
+
+        if (currentIndex !== -1) {
+            const nextIndex = currentIndex + direction;
+            if (nextIndex >= 0 && nextIndex < students.length) {
+                const nextStudent = students[nextIndex];
+                window.location.hash = `student/${nextStudent.id}`;
+            } else if (nextIndex < 0) {
+                this.showToast("Este es el primer alumno del grupo.", "info");
+            } else {
+                this.showToast("Este es el último alumno del grupo.", "info");
             }
         }
     },
@@ -672,7 +722,7 @@ const app = {
                         const filteredActivities = this.getFilteredActivities(student, this.currentSubject);
                         const filteredReports = this.getFilteredReports(student, this.currentSubject);
                         return `
-                        <div class="student-item">
+                        <div class="student-item" data-student-id="${student.id}">
                             <div class="student-info">
                                 <div style="display:flex; align-items:center; gap:8px">
                                     <span class="student-name">${student.name}</span>
