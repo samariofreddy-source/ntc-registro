@@ -216,6 +216,18 @@ const app = {
         return reps.filter(rep => rep.subject === subject);
     },
 
+    getSubjectLabel(subject = this.currentSubject) {
+        if (subject === 'robotica') return 'Robótica';
+        if (subject === 'cultura-digital') return 'Cultura Digital';
+        return 'Tecnología';
+    },
+
+    getSubjectSuffix(subject = this.currentSubject) {
+        if (subject === 'robotica') return '_Robotica';
+        if (subject === 'cultura-digital') return '_CulturaDigital';
+        return '_Tecnologia';
+    },
+
     bindEvents() {
         const btnAddGroup = document.getElementById('btn-add-group');
         if (btnAddGroup) btnAddGroup.onclick = () => this.openModal('group');
@@ -260,7 +272,12 @@ const app = {
 
         const actSubjectSelect = document.getElementById('activity-subject');
         if (actSubjectSelect) {
-            actSubjectSelect.onchange = () => this.updateActivitySuggestions();
+            actSubjectSelect.onchange = (e) => this.switchGlobalSubject(e.target.value);
+        }
+
+        const repSubjectSelect = document.getElementById('report-subject');
+        if (repSubjectSelect) {
+            repSubjectSelect.onchange = (e) => this.switchGlobalSubject(e.target.value);
         }
     },
 
@@ -282,6 +299,8 @@ const app = {
 
         const repSubjectSelect = document.getElementById('report-subject');
         if (repSubjectSelect) repSubjectSelect.value = subject;
+
+        this.updateActivitySuggestions();
 
         // Refresh views
         if (document.getElementById('view-admin').classList.contains('active')) {
@@ -584,9 +603,12 @@ const app = {
             const students = this.getStudentsArray(group);
 
             return `
-            <div class="card">
+            <div class="card group-card" data-group-id="${group.id}">
                 <div class="group-header">
                     <div style="display:flex; align-items:center; gap:10px">
+                        <div class="drag-handle admin-only" title="Arrastrar para reordenar">
+                            <i data-lucide="grip-vertical"></i>
+                        </div>
                         <button class="btn-icon btn-toggle-group ${this.data.collapsedGroups.includes(group.id) ? 'collapsed' : ''}" 
                                 onclick="app.toggleGroup('${group.id}')" title="Contraer/Expandir">
                             <i data-lucide="chevron-down"></i>
@@ -671,6 +693,162 @@ const app = {
 
         lucide.createIcons();
         this.updateStats();
+        this.setupGroupDragAndDrop();
+    },
+
+    setupGroupDragAndDrop() {
+        if (this.currentGroupId || !this.isAdmin) return;
+        const container = document.getElementById('groups-container');
+        if (!container) return;
+
+        const cards = Array.from(container.querySelectorAll('.group-card'));
+        if (cards.length === 0) return;
+
+        let draggedCard = null;
+
+        cards.forEach(card => {
+            const handle = card.querySelector('.drag-handle');
+            if (handle) {
+                handle.setAttribute('draggable', 'true');
+            }
+            card.setAttribute('draggable', 'true');
+
+            card.addEventListener('dragstart', (e) => {
+                const target = e.target;
+                if (target.closest('button') || target.closest('input') || target.closest('.student-item')) {
+                    if (!target.closest('.drag-handle')) {
+                        e.preventDefault();
+                        return;
+                    }
+                }
+                draggedCard = card;
+                card.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', card.dataset.groupId);
+            });
+
+            card.addEventListener('dragend', () => {
+                card.classList.remove('dragging');
+                cards.forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom'));
+                draggedCard = null;
+            });
+
+            card.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                if (!draggedCard || draggedCard === card) return;
+
+                e.dataTransfer.dropEffect = 'move';
+
+                const rect = card.getBoundingClientRect();
+                const offsetY = e.clientY - rect.top;
+                const halfHeight = rect.height / 2;
+
+                cards.forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom'));
+
+                if (offsetY < halfHeight) {
+                    card.classList.add('drag-over-top');
+                } else {
+                    card.classList.add('drag-over-bottom');
+                }
+            });
+
+            card.addEventListener('dragleave', (e) => {
+                if (!card.contains(e.relatedTarget)) {
+                    card.classList.remove('drag-over-top', 'drag-over-bottom');
+                }
+            });
+
+            card.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                cards.forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom'));
+
+                if (!draggedCard || draggedCard === card) return;
+
+                const draggedId = draggedCard.dataset.groupId;
+                const targetId = card.dataset.groupId;
+
+                const rect = card.getBoundingClientRect();
+                const offsetY = e.clientY - rect.top;
+                const position = (offsetY < rect.height / 2) ? 'before' : 'after';
+
+                this.reorderGroups(draggedId, targetId, position);
+            });
+
+            if (handle) {
+                handle.addEventListener('touchstart', (e) => {
+                    draggedCard = card;
+                    card.classList.add('dragging');
+                }, { passive: true });
+
+                handle.addEventListener('touchmove', (e) => {
+                    if (!draggedCard) return;
+                    const touch = e.touches[0];
+                    const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+                    if (!targetElement) return;
+
+                    const hoverCard = targetElement.closest('.group-card');
+                    cards.forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom'));
+
+                    if (hoverCard && hoverCard !== draggedCard) {
+                        const rect = hoverCard.getBoundingClientRect();
+                        const offsetY = touch.clientY - rect.top;
+                        if (offsetY < rect.height / 2) {
+                            hoverCard.classList.add('drag-over-top');
+                        } else {
+                            hoverCard.classList.add('drag-over-bottom');
+                        }
+                    }
+                }, { passive: true });
+
+                handle.addEventListener('touchend', (e) => {
+                    if (!draggedCard) return;
+                    card.classList.remove('dragging');
+                    const touch = e.changedTouches[0];
+                    const targetElement = document.elementFromPoint(touch.clientX, touch.clientY);
+
+                    if (targetElement) {
+                        const dropCard = targetElement.closest('.group-card');
+                        if (dropCard && dropCard !== draggedCard) {
+                            const rect = dropCard.getBoundingClientRect();
+                            const offsetY = touch.clientY - rect.top;
+                            const position = (offsetY < rect.height / 2) ? 'before' : 'after';
+
+                            const draggedId = draggedCard.dataset.groupId;
+                            const targetId = dropCard.dataset.groupId;
+
+                            this.reorderGroups(draggedId, targetId, position);
+                        }
+                    }
+
+                    cards.forEach(c => c.classList.remove('drag-over-top', 'drag-over-bottom'));
+                    draggedCard = null;
+                });
+            }
+        });
+    },
+
+    reorderGroups(draggedId, targetId, position) {
+        if (!this.data.groups || this.data.groups.length <= 1) return;
+
+        const draggedIndex = this.data.groups.findIndex(g => g.id === draggedId);
+        const targetIndex = this.data.groups.findIndex(g => g.id === targetId);
+
+        if (draggedIndex === -1 || targetIndex === -1) return;
+
+        const [draggedGroup] = this.data.groups.splice(draggedIndex, 1);
+
+        let insertIndex = this.data.groups.findIndex(g => g.id === targetId);
+        if (position === 'after') {
+            insertIndex += 1;
+        }
+
+        this.data.groups.splice(insertIndex, 0, draggedGroup);
+
+        this.saveData();
+        this.renderAdmin();
+        this.showToast("Orden de grupos actualizado", "success");
     },
 
     toggleGroup(groupId) {
@@ -770,26 +948,122 @@ const app = {
 
         if (count === 0) {
             list.innerHTML = `<p class="empty-state">No hay actividades registradas.</p>`;
-            return;
+        } else {
+            list.innerHTML = activities.map(act => `
+                <div class="activity-card">
+                    <div class="activity-info">
+                        <p class="activity-name">${act.name}</p>
+                        <p class="student-meta">${new Date(act.date).toLocaleDateString()}</p>
+                    </div>
+                    <div class="activity-actions">
+                        <div class="activity-grade">${act.grade}</div>
+                        <button class="btn-icon admin-only" onclick="app.editActivity('${act.id}')" title="Editar">
+                            <i data-lucide="edit-2" style="width:16px"></i>
+                        </button>
+                        <button class="btn-icon danger admin-only" onclick="app.deleteActivity('${act.id}')" title="Eliminar">
+                            <i data-lucide="trash-2" style="width:16px"></i>
+                        </button>
+                    </div>
+                </div>
+            `).reverse().join('');
         }
 
-        list.innerHTML = activities.map(act => `
-            <div class="activity-card">
-                <div class="activity-info">
-                    <p class="activity-name">${act.name}</p>
-                    <p class="student-meta">${new Date(act.date).toLocaleDateString()}</p>
-                </div>
-                <div class="activity-actions">
-                    <div class="activity-grade">${act.grade}</div>
-                    <button class="btn-icon admin-only" onclick="app.editActivity('${act.id}')" title="Editar">
-                        <i data-lucide="edit-2" style="width:16px"></i>
-                    </button>
-                    <button class="btn-icon danger admin-only" onclick="app.deleteActivity('${act.id}')" title="Eliminar">
-                        <i data-lucide="trash-2" style="width:16px"></i>
-                    </button>
-                </div>
-            </div>
-        `).reverse().join('');
+        // Renderizar Actividades Faltantes
+        const missingContainer = document.getElementById('missing-activities-container');
+        if (missingContainer && group) {
+            const groupStudents = this.getStudentsArray(group);
+            const allGroupActivities = new Set();
+            
+            groupStudents.forEach(s => {
+                let sActs = this.getFilteredActivities(s, this.currentSubject);
+                if (this.selectedMonth !== 'all') {
+                    sActs = sActs.filter(act => {
+                        const d = new Date(act.date);
+                        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        return monthKey === this.selectedMonth;
+                    });
+                }
+                sActs.forEach(act => {
+                    if (act.name && act.name.trim()) {
+                        allGroupActivities.add(act.name.trim());
+                    }
+                });
+            });
+
+            const studentActNames = new Set(activities.map(act => act.name ? act.name.trim() : ''));
+            const missingActivities = Array.from(allGroupActivities).filter(actName => !studentActNames.has(actName));
+
+            if (missingActivities.length > 0) {
+                missingContainer.innerHTML = `
+                    <div class="missing-activities-card">
+                        <div class="summary-header">
+                            <h4 style="display:flex; align-items:center; gap:8px; color: #f59e0b; font-size: 1rem;">
+                                <i data-lucide="alert-circle" style="color: #f59e0b; width: 18px; height: 18px;"></i>
+                                Actividades Faltantes (${missingActivities.length})
+                            </h4>
+                        </div>
+                        <p class="student-meta" style="margin-top: 4px; font-size: 0.8rem;">Actividades registradas en el grupo que este alumno aún no realiza:</p>
+                        <div class="missing-activities-list">
+                            ${missingActivities.map(actName => `
+                                <span class="missing-tag">
+                                    <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
+                                    ${actName}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            } else {
+                missingContainer.innerHTML = `
+                    <div class="up-to-date-card">
+                        <i data-lucide="check-circle-2" style="width: 20px; height: 20px;"></i>
+                        <span>¡Al día! No tiene actividades pendientes en esta materia.</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Renderizar Resumen de Reportes
+        const reportsSummaryContainer = document.getElementById('student-reports-summary-container');
+        if (reportsSummaryContainer) {
+            const reports = this.getFilteredReports(student, this.currentSubject);
+            if (reports.length > 0) {
+                reportsSummaryContainer.innerHTML = `
+                    <div class="student-reports-card">
+                        <div class="summary-header" style="margin-bottom: 12px;">
+                            <h4 style="display:flex; align-items:center; gap:8px; color: var(--danger); font-size: 1rem;">
+                                <i data-lucide="alert-triangle" style="color: var(--danger); width: 18px; height: 18px;"></i>
+                                Reportes Registrados (${reports.length})
+                            </h4>
+                        </div>
+                        <div class="reports-summary-list">
+                            ${reports.map(rep => `
+                                <div class="report-card" style="margin-bottom: 8px;">
+                                    <div class="report-info">
+                                        <span class="report-type">${rep.label}</span>
+                                        <span class="student-meta">${new Date(rep.date).toLocaleDateString()}</span>
+                                        ${rep.reason ? `<p class="report-reason">"${rep.reason}"</p>` : ''}
+                                    </div>
+                                    <div class="activity-actions">
+                                        <button class="btn-icon danger admin-only" onclick="app.deleteReport('${rep.id}')" title="Eliminar">
+                                            <i data-lucide="trash-2" style="width:16px"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            `).reverse().join('')}
+                        </div>
+                    </div>
+                `;
+            } else {
+                reportsSummaryContainer.innerHTML = `
+                    <div class="no-reports-card">
+                        <i data-lucide="shield-check" style="width: 20px; height: 20px; color: var(--success);"></i>
+                        <span>Sin reportes registrados en esta materia.</span>
+                    </div>
+                `;
+            }
+        }
+
         lucide.createIcons();
     },
 
@@ -862,7 +1136,7 @@ const app = {
         // (esto ayuda si se registra otra actividad para el mismo alumno)
         nameInput.value = localStorage.getItem(`ntc_last_act_${group.id}_${today}`) || '';
         gradeInput.value = '';
-        if (subjectSelect) subjectSelect.value = 'tecnologia';
+        if (subjectSelect) subjectSelect.value = this.currentSubject;
 
         // Restablecer el interruptor y ocultar la fecha retroactiva
         if (lateSwitch) {
@@ -951,12 +1225,13 @@ const app = {
         student.reports = reports;
         this.saveData();
         this.renderStudentReports(student);
+        this.renderStudentActivities(student);
 
         // Reset form
         checkboxes.forEach(cb => cb.checked = false);
         reasonInput.value = '';
         document.getElementById('indisciplina-reason-group').style.display = 'none';
-        if (subjectSelect) subjectSelect.value = 'tecnologia';
+        if (subjectSelect) subjectSelect.value = this.currentSubject;
 
         this.showToast("Reporte(s) guardado(s)", "success");
     },
@@ -1010,6 +1285,7 @@ const app = {
             student.reports = reportsList.filter(r => r.id !== reportId);
             this.saveData();
             this.renderStudentReports(student);
+            this.renderStudentActivities(student);
         }
     },
 
@@ -1671,7 +1947,7 @@ const app = {
         const ignoreKeywords = [
             'nombre', 'alumnos', 'lista', 'asistencia', 'materia', 'profesor', 'maestro',
             'grupo', 'grado', 'escuela', 'colegio', 'ciclo', 'fecha', 'firma', 'calificacion',
-            'promedio', 'examen', 'tarea', 'reporte', 'folio', 'no.', 'num', 'tecnologia', 'robotica'
+            'promedio', 'examen', 'tarea', 'reporte', 'folio', 'no.', 'num', 'tecnologia', 'robotica', 'cultura-digital', 'culturadigital'
         ];
 
         const names = [];
@@ -1826,7 +2102,7 @@ const app = {
         const student = this.findStudent(this.currentStudentId);
         const html = this.getStudentReportHTML(student, month);
         const monthSuffix = month !== 'all' ? `_${month}` : '';
-        const subjectSuffix = this.currentSubject === 'tecnologia' ? '_Tecnologia' : '_Robotica';
+        const subjectSuffix = this.getSubjectSuffix();
         this.execDownload(html, `Reporte_${student.name.replace(/ /g, '_')}${subjectSuffix}${monthSuffix}.pdf`);
     },
 
@@ -1840,7 +2116,7 @@ const app = {
         const group = this.data.groups.find(g => g.id === groupId);
         const html = this.getGroupReportHTML(group, month);
         const monthSuffix = month !== 'all' ? `_${month}` : '';
-        const subjectSuffix = this.currentSubject === 'tecnologia' ? '_Tecnologia' : '_Robotica';
+        const subjectSuffix = this.getSubjectSuffix();
         this.execDownload(html, `Reporte_General_${group.name.replace(/ /g, '_')}${subjectSuffix}${monthSuffix}.pdf`);
         // También descargar el Excel automáticamente
         this.downloadGroupExcel(groupId, month);
@@ -1994,7 +2270,7 @@ const app = {
         // Fila 1: Encabezados de columna
         // Filas 2+: datos
         const tableRows = [];
-        const subjectLabel = this.currentSubject === 'tecnologia' ? 'Tecnología' : 'Robótica';
+        const subjectLabel = this.getSubjectLabel();
         tableRows.push(['Tabla de actividades desarrolladas - ' + subjectLabel, '', '', '', '']);
         tableRows.push(['Número de Actividad', 'Título de la Actividad', 'Día', 'Mes', 'Año']);
 
@@ -2027,7 +2303,7 @@ const app = {
         XLSX.utils.book_append_sheet(wb, ws2, 'Tabla de Actividades');
 
         const monthSuffix = filterMonth !== 'all' ? `_${filterMonth}` : '';
-        const subjectSuffix = this.currentSubject === 'tecnologia' ? '_Tecnologia' : '_Robotica';
+        const subjectSuffix = this.getSubjectSuffix();
         const filename = `Calificaciones_${group.name.replace(/ /g, '_')}${subjectSuffix}${monthSuffix}.xlsx`;
         XLSX.writeFile(wb, filename);
         this.showToast('Excel descargado correctamente.', 'success');
@@ -2062,7 +2338,7 @@ const app = {
         });
 
         const monthSuffix = month !== 'all' ? `_${month}` : '';
-        const subjectSuffix = this.currentSubject === 'tecnologia' ? '_Tecnologia' : '_Robotica';
+        const subjectSuffix = this.getSubjectSuffix();
         this.execDownload(fullHtml, `Reportes_Individuales_${group.name.replace(/ /g, '_')}${subjectSuffix}${monthSuffix}.pdf`);
     },
 
@@ -2117,7 +2393,7 @@ const app = {
             monthTitle = ` - ${monthNames[parseInt(month) - 1]} ${year}`;
         }
 
-        const subjectLabel = this.currentSubject === 'tecnologia' ? 'Tecnología' : 'Robótica';
+        const subjectLabel = this.getSubjectLabel();
 
         return `
             <style>
@@ -2254,7 +2530,7 @@ const app = {
             monthTitle = ` - ${monthNames[parseInt(month) - 1]} ${year}`;
         }
 
-        const subjectLabel = this.currentSubject === 'tecnologia' ? 'Tecnología' : 'Robótica';
+        const subjectLabel = this.getSubjectLabel();
 
         return `
             <style>

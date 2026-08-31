@@ -27,7 +27,7 @@
     <!-- Tesseract.js para OCR de fotos e imágenes -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=3.6">
+    <link rel="stylesheet" href="style.css?v=3.8">
 </head>
 
 <body>
@@ -72,6 +72,9 @@
                 </button>
                 <button id="admin-subject-robotica" class="subject-tab" onclick="app.switchGlobalSubject('robotica')">
                     <i data-lucide="bot"></i> Robótica
+                </button>
+                <button id="admin-subject-cultura-digital" class="subject-tab" onclick="app.switchGlobalSubject('cultura-digital')">
+                    <i data-lucide="globe"></i> Cultura Digital
                 </button>
             </div>
 
@@ -145,6 +148,9 @@
                 <button id="student-subject-robotica" class="subject-tab" onclick="app.switchGlobalSubject('robotica')">
                     <i data-lucide="bot"></i> Robótica
                 </button>
+                <button id="student-subject-cultura-digital" class="subject-tab" onclick="app.switchGlobalSubject('cultura-digital')">
+                    <i data-lucide="globe"></i> Cultura Digital
+                </button>
             </div>
 
             <div class="tabs-container admin-only">
@@ -165,6 +171,7 @@
                             <select id="activity-subject" class="premium-select" required>
                                 <option value="tecnologia" selected>Tecnología</option>
                                 <option value="robotica">Robótica</option>
+                                <option value="cultura-digital">Cultura Digital</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -226,6 +233,14 @@
                     <div class="activities-list" id="activities-list">
                         <!-- Activities will be rendered here -->
                     </div>
+
+                    <div id="missing-activities-container">
+                        <!-- Missing activities will be rendered here -->
+                    </div>
+
+                    <div id="student-reports-summary-container">
+                        <!-- Student reports summary will be rendered here -->
+                    </div>
                 </div>
             </div>
 
@@ -238,6 +253,7 @@
                             <select id="report-subject" class="premium-select" required>
                                 <option value="tecnologia" selected>Tecnología</option>
                                 <option value="robotica">Robótica</option>
+                                <option value="cultura-digital">Cultura Digital</option>
                             </select>
                         </div>
                         <div class="reports-grid">
@@ -324,8 +340,8 @@
     <div id="toast-container" class="toast-container"></div>
     <div
         style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: var(--text-muted); opacity: 0.5; z-index: 9999;">
-        v3.6</div>
-    <script type="module" src="app.js?v=3.6"></script>
+        v3.8</div>
+    <script type="module" src="app.js?v=3.8"></script>
 </body>
 
 </html>
