@@ -1,5 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { generateQRCodeSVG } from "./qr-engine.js?v=3.10";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDVVA8TGcU6GZcSlxijaTtwASfdp4t8YO0",
@@ -26,7 +27,7 @@ const app = {
     lastVisitedStudentId: null,
 
     init() {
-        console.log("FreddyApp v3.9 - Iniciando...");
+        console.log("FreddyApp v3.10 - Iniciando...");
         this.bindEvents();
         this.checkAdminSession(); // Verificar si ya hay una sesión activa
         this.loadData(); // loadData ahora llamará a checkRoute cuando los datos lleguen
@@ -2436,18 +2437,8 @@ const app = {
         return `${base.replace(/\/+$/, '')}/#student/${studentId}`;
     },
 
-    generateQRCodeDataUrl(text) {
-        if (typeof qrcode !== 'undefined') {
-            try {
-                const qr = qrcode(0, 'M');
-                qr.addData(text);
-                qr.make();
-                return qr.createDataURL(4, 2);
-            } catch (e) {
-                console.error("Error generando código QR con qrcode:", e);
-            }
-        }
-        return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(text)}`;
+    generateQRCodeSVG(text) {
+        return generateQRCodeSVG(text);
     },
 
     getStudentReportHTML(student, filterMonth = 'all') {
@@ -2504,7 +2495,7 @@ const app = {
         const subjectLabel = this.getSubjectLabel();
         const studentId = student.id || this.currentStudentId;
         const studentPublicUrl = this.getStudentPublicUrl(studentId);
-        const qrDataUrl = this.generateQRCodeDataUrl(studentPublicUrl);
+        const qrSvg = this.generateQRCodeSVG(studentPublicUrl);
 
         return `
             <style>
@@ -2608,8 +2599,8 @@ const app = {
                     <table style="width: 100%; border-collapse: collapse; border: none; margin: 0;">
                         <tr>
                             <td style="width: 115px; vertical-align: middle; border: none; padding: 4px; text-align: center;">
-                                <div style="background: #ffffff; padding: 6px; border-radius: 8px; border: 1px solid #e2e8f0; display: inline-block;">
-                                    <img src="${qrDataUrl}" width="100" height="100" style="display: block; width: 100px; height: 100px;" alt="Código QR para consulta de progreso" />
+                                <div style="background: #ffffff; padding: 4px; border-radius: 8px; border: 1px solid #cbd5e1; display: inline-flex; align-items: center; justify-content: center; width: 105px; height: 105px; box-sizing: border-box;">
+                                    ${qrSvg}
                                 </div>
                             </td>
                             <td style="vertical-align: middle; border: none; padding: 4px 0 4px 15px;">
@@ -2801,7 +2792,7 @@ const app = {
 
     execPrint(html) {
         const printWindow = window.open('', '_blank');
-        printWindow.document.write(`<html><head><title>FreddyApp - Reporte</title></head><body>${html}</body></html>`);
+        printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>FreddyApp - Reporte</title></head><body>${html}</body></html>`);
         printWindow.document.close();
         printWindow.focus();
         setTimeout(() => {
