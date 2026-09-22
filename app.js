@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { generateQRCodeSVG } from "./qr-engine.js?v=3.10";
+import { generateQRCodeDataURL } from "./qr-engine.js?v=3.11";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDVVA8TGcU6GZcSlxijaTtwASfdp4t8YO0",
@@ -27,7 +27,7 @@ const app = {
     lastVisitedStudentId: null,
 
     init() {
-        console.log("FreddyApp v3.10 - Iniciando...");
+        console.log("FreddyApp v3.11 - Iniciando...");
         this.bindEvents();
         this.checkAdminSession(); // Verificar si ya hay una sesión activa
         this.loadData(); // loadData ahora llamará a checkRoute cuando los datos lleguen
@@ -2437,8 +2437,8 @@ const app = {
         return `${base.replace(/\/+$/, '')}/#student/${studentId}`;
     },
 
-    generateQRCodeSVG(text) {
-        return generateQRCodeSVG(text);
+    generateQRCodeDataURL(text) {
+        return generateQRCodeDataURL(text);
     },
 
     getStudentReportHTML(student, filterMonth = 'all') {
@@ -2495,7 +2495,7 @@ const app = {
         const subjectLabel = this.getSubjectLabel();
         const studentId = student.id || this.currentStudentId;
         const studentPublicUrl = this.getStudentPublicUrl(studentId);
-        const qrSvg = this.generateQRCodeSVG(studentPublicUrl);
+        const qrDataUrl = this.generateQRCodeDataURL(studentPublicUrl);
 
         return `
             <style>
@@ -2599,8 +2599,8 @@ const app = {
                     <table style="width: 100%; border-collapse: collapse; border: none; margin: 0;">
                         <tr>
                             <td style="width: 115px; vertical-align: middle; border: none; padding: 4px; text-align: center;">
-                                <div style="background: #ffffff; padding: 4px; border-radius: 8px; border: 1px solid #cbd5e1; display: inline-flex; align-items: center; justify-content: center; width: 105px; height: 105px; box-sizing: border-box;">
-                                    ${qrSvg}
+                                <div style="background: #ffffff; padding: 4px; border-radius: 8px; border: 1px solid #cbd5e1; display: inline-block;">
+                                    <img src="${qrDataUrl}" width="100" height="100" style="display: block; width: 100px; height: 100px;" alt="Código QR para consulta de progreso" />
                                 </div>
                             </td>
                             <td style="vertical-align: middle; border: none; padding: 4px 0 4px 15px;">
@@ -2795,10 +2795,38 @@ const app = {
         printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>FreddyApp - Reporte</title></head><body>${html}</body></html>`);
         printWindow.document.close();
         printWindow.focus();
-        setTimeout(() => {
-            printWindow.print();
-            printWindow.close();
-        }, 500);
+
+        const triggerPrint = () => {
+            try {
+                printWindow.print();
+                printWindow.close();
+            } catch (e) {
+                console.error("Print error:", e);
+            }
+        };
+
+        // Esperar a que las imágenes (código QR) terminen de renderizarse antes de imprimir
+        const imgs = Array.from(printWindow.document.images || []);
+        if (imgs.length === 0) {
+            setTimeout(triggerPrint, 300);
+        } else {
+            let loaded = 0;
+            const onDone = () => {
+                loaded++;
+                if (loaded >= imgs.length) {
+                    setTimeout(triggerPrint, 250);
+                }
+            };
+            imgs.forEach(img => {
+                if (img.complete && img.naturalHeight !== 0) {
+                    onDone();
+                } else {
+                    img.onload = onDone;
+                    img.onerror = onDone;
+                }
+            });
+            setTimeout(triggerPrint, 1200);
+        }
     },
 
     execDownload(html, filename) {
