@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { generateQRCodeDataURL } from "./qr-engine.js?v=3.13";
+import { generateQRCodeDataURL } from "./qr-engine.js?v=3.15";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDVVA8TGcU6GZcSlxijaTtwASfdp4t8YO0",
@@ -27,7 +27,7 @@ const app = {
     lastVisitedStudentId: null,
 
     init() {
-        console.log("FreddyApp v3.13 - Iniciando...");
+        console.log("FreddyApp v3.15 - Iniciando...");
         this.bindEvents();
         this.checkAdminSession(); // Verificar si ya hay una sesión activa
         this.loadData(); // loadData ahora llamará a checkRoute cuando los datos lleguen
@@ -1447,14 +1447,11 @@ const app = {
                 </div>
 
                 <div style="display: grid; gap: 10px;">
-                    <button class="btn-primary" onclick="app.downloadGroup('${targetId}', document.getElementById('modal-select-month').value); app.closeModal();" style="justify-content: center;">
-                        <i data-lucide="file-text"></i> Reporte General (PDF)
-                    </button>
                     <button class="btn-primary" onclick="app.downloadGroupIndividualReports('${targetId}', document.getElementById('modal-select-month').value); app.closeModal();" style="justify-content: center; background-color: var(--accent);">
-                        <i data-lucide="download"></i> Descargar Individuales (PDF)
+                        <i data-lucide="download"></i> Descargar / Guardar Individuales en PDF
                     </button>
-                    <button class="btn-secondary" onclick="app.printGroupIndividualReports('${targetId}', document.getElementById('modal-select-month').value); app.closeModal();" style="justify-content: center; border: 1px solid var(--accent); color: var(--accent);">
-                        <i data-lucide="printer"></i> Imprimir Individuales (o Guardar PDF)
+                    <button class="btn-primary" onclick="app.downloadGroup('${targetId}', document.getElementById('modal-select-month').value); app.closeModal();" style="justify-content: center;">
+                        <i data-lucide="file-text"></i> Reporte General (PDF + Excel)
                     </button>
                     <button class="btn-secondary" onclick="app.printGroup('${targetId}', document.getElementById('modal-select-month').value); app.closeModal();" style="justify-content: center; border: 1px solid var(--glass-border); color: var(--text-main);">
                         <i data-lucide="printer"></i> Imprimir Reporte General
@@ -1501,7 +1498,7 @@ const app = {
 
                 <div style="display: grid; gap: 12px;">
                     <button class="btn-primary" onclick="app.execDownloadStudent(document.getElementById('modal-select-month-student').value); app.closeModal();" style="justify-content: center;">
-                        <i data-lucide="download"></i> Descargar PDF
+                        <i data-lucide="download"></i> Descargar / Guardar PDF
                     </button>
                     <button class="btn-secondary" onclick="app.execPrintStudent(document.getElementById('modal-select-month-student').value); app.closeModal();" style="justify-content: center; border: 1px solid var(--glass-border); color: var(--text-main);">
                         <i data-lucide="printer"></i> Imprimir Reporte
@@ -2183,30 +2180,41 @@ const app = {
 
     execPrintStudent(month) {
         const student = this.findStudent(this.currentStudentId);
-        const html = this.getStudentReportHTML(student, month);
-        this.execPrint(html);
+        if (!student) {
+            this.showToast("No se encontró el alumno", "error");
+            return;
+        }
+        const monthSuffix = month !== 'all' ? `_${month}` : '';
+        const subjectSuffix = this.getSubjectSuffix();
+        const safeName = (student.name || 'Alumno').replace(/[\\/:*?"<>|]/g, '_');
+        const filename = `Reporte_${safeName}${subjectSuffix}${monthSuffix}.pdf`;
+
+        this.showToast("Abriendo reporte para Guardar como PDF...", "info");
+        const html = `
+            <div class="pdf-page" style="box-sizing: border-box;">
+                ${this.getStudentReportHTML(student, month)}
+            </div>
+        `;
+        this.execPrint(html, filename);
     },
 
     execDownloadStudent(month) {
-        const student = this.findStudent(this.currentStudentId);
-        const html = this.getStudentReportHTML(student, month);
-        const monthSuffix = month !== 'all' ? `_${month}` : '';
-        const subjectSuffix = this.getSubjectSuffix();
-        this.execDownload(html, `Reporte_${student.name.replace(/ /g, '_')}${subjectSuffix}${monthSuffix}.pdf`);
+        this.execPrintStudent(month);
     },
 
     printGroup(groupId, month = 'all') {
-        const group = this.data.groups.find(g => g.id === groupId);
+        const group = this.data.groups.find(g => String(g.id) === String(groupId));
+        if (!group) return;
+        const monthSuffix = month !== 'all' ? `_${month}` : '';
+        const subjectSuffix = this.getSubjectSuffix();
+        const safeGroupName = (group.name || 'Grupo').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const filename = `Reporte_General_${safeGroupName}${subjectSuffix}${monthSuffix}.pdf`;
         const html = this.getGroupReportHTML(group, month);
-        this.execPrint(html);
+        this.execPrint(html, filename);
     },
 
     downloadGroup(groupId, month = 'all') {
-        const group = this.data.groups.find(g => g.id === groupId);
-        const html = this.getGroupReportHTML(group, month);
-        const monthSuffix = month !== 'all' ? `_${month}` : '';
-        const subjectSuffix = this.getSubjectSuffix();
-        this.execDownload(html, `Reporte_General_${group.name.replace(/ /g, '_')}${subjectSuffix}${monthSuffix}.pdf`);
+        this.printGroup(groupId, month);
         // También descargar el Excel automáticamente
         this.downloadGroupExcel(groupId, month);
     },
@@ -2405,31 +2413,7 @@ const app = {
     },
 
     printGroupIndividualReports(groupId, month = 'all') {
-        const group = this.data.groups.find(g => g.id === groupId);
-        if (!group) return;
-
-        const students = this.getStudentsArray(group);
-        if (students.length === 0) {
-            this.showToast("No hay alumnos en este grupo", "error");
-            return;
-        }
-
-        this.showToast(`Preparando ${students.length} reportes para imprimir...`, "info");
-
-        let fullHtml = "";
-        students.forEach((student, index) => {
-            const studentWithGroup = this.findStudent(student.id);
-            fullHtml += this.getStudentReportHTML(studentWithGroup, month);
-            if (index < students.length - 1) {
-                fullHtml += '<div class="page-break" style="page-break-after: always; break-after: page;"></div>';
-            }
-        });
-
-        this.execPrint(fullHtml);
-    },
-
-    async downloadGroupIndividualReports(groupId, month = 'all') {
-        const group = this.data.groups.find(g => g.id === groupId);
+        const group = this.data.groups.find(g => String(g.id) === String(groupId));
         if (!group) return;
 
         const students = this.getStudentsArray(group);
@@ -2441,79 +2425,26 @@ const app = {
         const monthSuffix = month !== 'all' ? `_${month}` : '';
         const subjectSuffix = this.getSubjectSuffix();
         const safeGroupName = (group.name || 'Grupo').replace(/[^a-zA-Z0-9_-]/g, '_');
-        const finalFilename = `Reportes_Individuales_${safeGroupName}${subjectSuffix}${monthSuffix}.pdf`;
+        const filename = `Reportes_Individuales_${safeGroupName}${subjectSuffix}${monthSuffix}.pdf`;
 
-        this.showToast(`Iniciando generación de ${students.length} reportes individuales...`, "info");
+        this.showToast(`Preparando ${students.length} reportes individuales para Guardar como PDF...`, "info");
 
-        // Crear contenedor temporal fuera de pantalla pero dentro del DOM
-        const renderContainer = document.createElement('div');
-        renderContainer.id = 'bulk-pdf-render-box';
-        renderContainer.style.position = 'fixed';
-        renderContainer.style.left = '-9999px';
-        renderContainer.style.top = '0';
-        renderContainer.style.width = '794px'; // Ancho A4 exacto a 96 DPI
-        renderContainer.style.background = '#ffffff';
-        renderContainer.style.zIndex = '-99999';
-        document.body.appendChild(renderContainer);
+        let fullHtml = "";
+        students.forEach((student, index) => {
+            const studentWithGroup = this.findStudent(student.id);
+            if (!studentWithGroup) return;
+            fullHtml += `
+                <div class="pdf-page" style="page-break-after: always; break-after: page; box-sizing: border-box;">
+                    ${this.getStudentReportHTML(studentWithGroup, month)}
+                </div>
+            `;
+        });
 
-        try {
-            const { jsPDF } = window.jspdf || window;
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4',
-                compress: true
-            });
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
+        this.execPrint(fullHtml, filename);
+    },
 
-            for (let i = 0; i < students.length; i++) {
-                const s = students[i];
-                const studentWithGroup = this.findStudent(s.id);
-                if ((i + 1) % 5 === 0 || i === 0 || i === students.length - 1) {
-                    this.showToast(`Generando PDF: alumno ${i + 1} de ${students.length}...`, "info");
-                }
-
-                renderContainer.innerHTML = this.getStudentReportHTML(studentWithGroup, month);
-
-                // Pequeña pausa para asegurar renderizado del DOM e imágenes
-                await new Promise(resolve => setTimeout(resolve, 25));
-
-                const canvas = await html2canvas(renderContainer, {
-                    scale: 1.5,
-                    useCORS: true,
-                    logging: false,
-                    scrollX: 0,
-                    scrollY: 0,
-                    windowWidth: 794
-                });
-
-                const imgData = canvas.toDataURL('image/jpeg', 0.95);
-                if (i > 0) {
-                    pdf.addPage('a4', 'portrait');
-                }
-                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-            }
-
-            const blob = pdf.output('blob');
-            this.triggerBlobDownload(blob, finalFilename);
-            this.showToast(`¡Reportes individuales descargados! (${students.length} alumnos)`, "success");
-        } catch (err) {
-            console.error("Error en generación por alumno, intentando fallback:", err);
-            let fullHtml = "";
-            students.forEach((student, index) => {
-                const studentWithGroup = this.findStudent(student.id);
-                fullHtml += this.getStudentReportHTML(studentWithGroup, month);
-                if (index < students.length - 1) {
-                    fullHtml += '<div class="page-break"></div>';
-                }
-            });
-            this.execDownload(fullHtml, finalFilename);
-        } finally {
-            if (renderContainer.parentNode) {
-                renderContainer.parentNode.removeChild(renderContainer);
-            }
-        }
+    downloadGroupIndividualReports(groupId, month = 'all') {
+        this.printGroupIndividualReports(groupId, month);
     },
 
     getStudentPublicUrl(studentId) {
@@ -2587,36 +2518,56 @@ const app = {
 
         return `
             <style>
+                @page {
+                    size: A4 portrait;
+                    margin: 6mm 8mm;
+                }
                 @media print {
                     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                    .pdf-body { padding: 6mm; }
-                    .page-break { page-break-after: always; break-after: page; }
+                    .pdf-body { padding: 0 !important; }
+                    .page-break { page-break-after: always !important; break-after: page !important; }
                 }
-                .pdf-body { font-family: Arial, sans-serif; padding: 8mm; color: #1e293b; box-sizing: border-box; }
-                .report-title { color: #4f46e5; margin: 0 0 6px 0; font-size: 18pt; font-weight: bold; }
-                .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 15px; margin: 8px 0 10px 0; font-size: 9.5pt; color: #334155; }
-                .meta-item { line-height: 1.35; }
-                table.report-table { width: 100%; border-collapse: collapse; margin-top: 8px; margin-bottom: 8px; }
-                table.report-table th, table.report-table td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; font-size: 9pt; }
+                .pdf-body { font-family: Arial, sans-serif; padding: 3mm 6mm; color: #1e293b; box-sizing: border-box; }
+                .report-title { color: #4f46e5; margin: 0 0 4px 0; font-size: 15pt; font-weight: bold; }
+                table.report-table { width: 100%; border-collapse: collapse; margin-top: 5px; margin-bottom: 5px; }
+                table.report-table th, table.report-table td { border: 1px solid #cbd5e1; padding: 3px 6px; text-align: left; font-size: 8.5pt; }
                 table.report-table th { background: #f1f5f9; font-weight: 600; color: #1e293b; }
-                .danger-title { color: #ef4444; margin-top: 10px; margin-bottom: 4px; font-size: 11pt; font-weight: bold; }
-                .summary-box { background: #f8fafc; border: 1px solid #c7d2fe; padding: 8px 12px; border-radius: 6px; margin-top: 8px; font-size: 9pt; }
-                .summary-item { margin: 2px 0; font-size: 9pt; color: #1e293b; }
-                .missing-list { color: #b91c1c; font-weight: bold; margin-top: 3px; font-size: 8.5pt; }
-                .completed-msg { color: #059669; font-weight: 700; font-size: 9pt; margin: 2px 0; }
-                .signature-section { margin-top: 20px; margin-bottom: 12px; page-break-inside: avoid; }
-                .qr-section { margin-top: 10px; padding: 8px 12px; border: 1.5px dashed #94a3b8; border-radius: 8px; background: #f8fafc; page-break-inside: avoid; }
+                .danger-title { color: #ef4444; margin-top: 5px; margin-bottom: 3px; font-size: 9.5pt; font-weight: bold; }
+                .summary-box { background: #f8fafc; border: 1px solid #c7d2fe; padding: 5px 8px; border-radius: 6px; margin-top: 5px; font-size: 8.5pt; }
+                .summary-item { margin: 1px 0; font-size: 8.5pt; color: #1e293b; }
+                .missing-list { color: #b91c1c; font-weight: bold; margin-top: 1px; font-size: 8pt; }
+                .completed-msg { color: #059669; font-weight: 700; font-size: 8.5pt; margin: 1px 0; }
+                .signature-section { margin-top: 10px; margin-bottom: 6px; page-break-inside: avoid; }
+                .qr-section { margin-top: 6px; padding: 5px 8px; border: 1.5px dashed #94a3b8; border-radius: 6px; background: #f8fafc; page-break-inside: avoid; }
             </style>
             <div class="pdf-body">
                 <h1 class="report-title">Historial del Alumno - ${subjectLabel}${monthTitle}</h1>
                 
-                <div class="meta-grid">
-                    <div class="meta-item"><strong>Alumno:</strong> ${student.name}</div>
-                    <div class="meta-item"><strong>Grupo:</strong> ${student.groupName || '-'}</div>
-                    <div class="meta-item"><strong>Fecha de Emisión:</strong> ${new Date().toLocaleDateString()}</div>
-                    <div class="meta-item"><strong>Reportes Totales:</strong> ${reports.length}</div>
-                    ${filterMonth !== 'all' ? `<div class="meta-item"><strong>Mes del Reporte:</strong> ${monthTitle.replace(' - ', '')}</div>` : ''}
-                </div>
+                <table style="width: 100%; border-collapse: collapse; border: none; margin: 6px 0 8px 0;">
+                    <tr>
+                        <td style="width: 50%; border: none; padding: 2px 8px 2px 0; font-size: 9pt; color: #334155; line-height: 1.3;">
+                            <strong>Alumno:</strong> ${student.name}
+                        </td>
+                        <td style="width: 50%; border: none; padding: 2px 0 2px 8px; font-size: 9pt; color: #334155; line-height: 1.3;">
+                            <strong>Grupo:</strong> ${student.groupName || '-'}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="width: 50%; border: none; padding: 2px 8px 2px 0; font-size: 9pt; color: #334155; line-height: 1.3;">
+                            <strong>Fecha de Emisión:</strong> ${new Date().toLocaleDateString()}
+                        </td>
+                        <td style="width: 50%; border: none; padding: 2px 0 2px 8px; font-size: 9pt; color: #334155; line-height: 1.3;">
+                            <strong>Reportes Totales:</strong> ${reports.length}
+                        </td>
+                    </tr>
+                    ${filterMonth !== 'all' ? `
+                    <tr>
+                        <td colspan="2" style="border: none; padding: 2px 0; font-size: 9pt; color: #334155; line-height: 1.3;">
+                            <strong>Mes del Reporte:</strong> ${monthTitle.replace(' - ', '')}
+                        </td>
+                    </tr>
+                    ` : ''}
+                </table>
                 
                 <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 8px 0;">
                 
@@ -2679,10 +2630,10 @@ const app = {
                     <table style="width: 100%; border-collapse: collapse; border: none; margin: 0;">
                         <tr>
                             <td style="border: none; padding: 0; text-align: center;">
-                                <div style="display: inline-block; width: 320px; text-align: center;">
-                                    <div style="height: 45px;"></div>
-                                    <div style="border-top: 1.5px solid #475569; padding-top: 5px;">
-                                        <p style="margin: 0; font-weight: bold; color: #1e293b; font-size: 9.5pt; text-transform: uppercase; letter-spacing: 0.5px;">
+                                <div style="display: inline-block; width: 300px; text-align: center;">
+                                    <div style="height: 32px;"></div>
+                                    <div style="border-top: 1.5px solid #475569; padding-top: 4px;">
+                                        <p style="margin: 0; font-weight: bold; color: #1e293b; font-size: 9pt; text-transform: uppercase; letter-spacing: 0.5px;">
                                             Nombre y firma de responsable
                                         </p>
                                     </div>
@@ -2696,9 +2647,9 @@ const app = {
                 <div class="qr-section">
                     <table style="width: 100%; border-collapse: collapse; border: none; margin: 0;">
                         <tr>
-                            <td style="width: 85px; vertical-align: middle; border: none; padding: 2px; text-align: center;">
-                                <div style="background: #ffffff; padding: 3px; border-radius: 6px; border: 1px solid #cbd5e1; display: inline-block;">
-                                    <img src="${qrDataUrl}" width="75" height="75" style="display: block; width: 75px; height: 75px;" alt="Código QR para consulta de progreso" />
+                            <td style="width: 75px; vertical-align: middle; border: none; padding: 2px; text-align: center;">
+                                <div style="background: #ffffff; padding: 2px; border-radius: 6px; border: 1px solid #cbd5e1; display: inline-block;">
+                                    <img src="${qrDataUrl}" width="65" height="65" style="display: block; width: 65px; height: 65px;" alt="Código QR para consulta de progreso" />
                                 </div>
                             </td>
                             <td style="vertical-align: middle; border: none; padding: 2px 0 2px 12px;">
@@ -2888,16 +2839,64 @@ const app = {
         `;
     },
 
-    execPrint(html) {
+    execPrint(html, filename = 'Reporte.pdf') {
+        const cleanName = (filename || 'Reporte.pdf').replace(/[\\/:*?"<>|]/g, '_');
+        const finalTitle = cleanName.toLowerCase().endsWith('.pdf') ? cleanName : `${cleanName}.pdf`;
+
         const printWindow = window.open('', '_blank');
-        printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>FreddyApp - Reporte</title></head><body>${html}</body></html>`);
+        if (!printWindow) {
+            this.showToast("Por favor permite ventanas emergentes (pop-ups) en tu navegador.", "error");
+            return;
+        }
+
+        printWindow.document.write(`<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>${finalTitle}</title>
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 6mm 8mm;
+        }
+        @media print {
+            * {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            html, body {
+                margin: 0;
+                padding: 0;
+                background: #ffffff;
+            }
+            .page-break {
+                page-break-after: always !important;
+                break-after: page !important;
+            }
+            .pdf-page {
+                page-break-after: always !important;
+                break-after: page !important;
+            }
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background: #ffffff;
+            font-family: Arial, sans-serif;
+        }
+    </style>
+</head>
+<body>
+    ${html}
+</body>
+</html>`);
         printWindow.document.close();
         printWindow.focus();
 
         const triggerPrint = () => {
             try {
+                printWindow.focus();
                 printWindow.print();
-                printWindow.close();
             } catch (e) {
                 console.error("Print error:", e);
             }
@@ -2906,7 +2905,7 @@ const app = {
         // Esperar a que las imágenes (código QR) terminen de renderizarse antes de imprimir
         const imgs = Array.from(printWindow.document.images || []);
         if (imgs.length === 0) {
-            setTimeout(triggerPrint, 300);
+            setTimeout(triggerPrint, 350);
         } else {
             let loaded = 0;
             const onDone = () => {
@@ -2927,64 +2926,8 @@ const app = {
         }
     },
 
-    triggerBlobDownload(blob, filename) {
-        const cleanName = (filename || 'Reporte.pdf').replace(/[\\/:*?"<>|]/g, '_');
-        const finalFilename = cleanName.toLowerCase().endsWith('.pdf') ? cleanName : `${cleanName}.pdf`;
-        const pdfBlob = (blob.type === 'application/pdf') ? blob : new Blob([blob], { type: 'application/pdf' });
-        const url = URL.createObjectURL(pdfBlob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = finalFilename;
-        a.rel = 'noopener';
-        document.body.appendChild(a);
-        a.click();
-        setTimeout(() => {
-            if (a.parentNode) a.parentNode.removeChild(a);
-            URL.revokeObjectURL(url);
-        }, 60000);
-    },
-
     execDownload(html, filename) {
-        this.showToast("Generando reporte...", "info");
-        const isLandscape = html.includes('Act 8') || html.includes('Act 9') || html.includes('Act 10');
-
-        const cleanName = (filename || 'Reporte.pdf').replace(/[\\/:*?"<>|]/g, '_');
-        const finalFilename = cleanName.toLowerCase().endsWith('.pdf') ? cleanName : `${cleanName}.pdf`;
-
-        // Reset scroll position for the capture and wrap HTML
-        const content = `<div style="position: relative; top: 0; left: 0; background: white; width: 100%; border: 1px solid transparent;">${html}</div>`;
-
-        const opt = {
-            margin: [8, 5, 8, 5],
-            filename: finalFilename,
-            image: { type: 'jpeg', quality: 0.95 },
-            html2canvas: {
-                scale: 1.5,
-                useCORS: true,
-                letterRendering: true,
-                scrollY: 0,
-                scrollX: 0,
-                logging: false
-            },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: isLandscape ? 'landscape' : 'portrait' },
-            pagebreak: { mode: ['css', 'legacy'] }
-        };
-
-        html2pdf().set(opt).from(content).output('blob').then((blob) => {
-            this.triggerBlobDownload(blob, finalFilename);
-            this.showToast("¡Descarga lista!", "success");
-        }).catch(err => {
-            console.error("PDF output blob fail, intentando fallback:", err);
-            html2pdf().set(opt).from(content).toPdf().get('pdf').then((pdf) => {
-                const b = pdf.output('blob');
-                this.triggerBlobDownload(b, finalFilename);
-                this.showToast("¡Descarga lista!", "success");
-            }).catch(e => {
-                console.error("Fallback PDF Fail:", e);
-                alert("No se pudo descargar directamente. Use 'Imprimir' y elija 'Guardar como PDF' como alternativa.");
-            });
-        });
+        this.execPrint(html, filename);
     },
 
     showToast(message, type = 'info') {
