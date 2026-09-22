@@ -26,7 +26,7 @@ const app = {
     lastVisitedStudentId: null,
 
     init() {
-        console.log("FreddyApp v3.1 - Iniciando...");
+        console.log("FreddyApp v3.9 - Iniciando...");
         this.bindEvents();
         this.checkAdminSession(); // Verificar si ya hay una sesión activa
         this.loadData(); // loadData ahora llamará a checkRoute cuando los datos lleguen
@@ -2427,6 +2427,29 @@ const app = {
         this.execDownload(fullHtml, `Reportes_Individuales_${group.name.replace(/ /g, '_')}${subjectSuffix}${monthSuffix}.pdf`);
     },
 
+    getStudentPublicUrl(studentId) {
+        if (!studentId) return 'https://ntc-registro.web.app/';
+        let base = window.location.origin + window.location.pathname;
+        if (!window.location.origin || window.location.origin === 'null' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:') {
+            base = 'https://ntc-registro.web.app/';
+        }
+        return `${base.replace(/\/+$/, '')}/#student/${studentId}`;
+    },
+
+    generateQRCodeDataUrl(text) {
+        if (typeof qrcode !== 'undefined') {
+            try {
+                const qr = qrcode(0, 'M');
+                qr.addData(text);
+                qr.make();
+                return qr.createDataURL(4, 2);
+            } catch (e) {
+                console.error("Error generando código QR con qrcode:", e);
+            }
+        }
+        return `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(text)}`;
+    },
+
     getStudentReportHTML(student, filterMonth = 'all') {
         let activities = this.getFilteredActivities(student, this.currentSubject);
         const reports = this.getFilteredReports(student, this.currentSubject);
@@ -2479,9 +2502,16 @@ const app = {
         }
 
         const subjectLabel = this.getSubjectLabel();
+        const studentId = student.id || this.currentStudentId;
+        const studentPublicUrl = this.getStudentPublicUrl(studentId);
+        const qrDataUrl = this.generateQRCodeDataUrl(studentPublicUrl);
 
         return `
             <style>
+                @media print {
+                    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .pdf-body { padding: 5mm; }
+                }
                 .pdf-body { font-family: Arial, sans-serif; padding: 10mm; color: #1e293b; }
                 table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px; }
                 th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; font-size: 11pt; }
@@ -2493,6 +2523,8 @@ const app = {
                 .summary-item { margin: 8px 0; font-size: 11pt; color: #1e293b; }
                 .missing-list { color: #b91c1c; font-weight: bold; margin-top: 5px; font-size: 11pt; }
                 .completed-msg { color: #059669; font-weight: 700; font-size: 11pt; margin-top: 5px; }
+                .signature-section { margin-top: 35px; margin-bottom: 20px; page-break-inside: avoid; }
+                .qr-section { margin-top: 25px; padding: 12px 16px; border: 1.5px dashed #94a3b8; border-radius: 10px; background: #f8fafc; page-break-inside: avoid; }
             </style>
             <div class="pdf-body">
                 <h1 class="report-title">Historial del Alumno - ${subjectLabel}${monthTitle}</h1>
@@ -2552,6 +2584,48 @@ const app = {
                     </tbody>
                 </table>
                 ` : ''}
+
+                <!-- Apartado: Nombre y firma de responsable -->
+                <div class="signature-section">
+                    <table style="width: 100%; border-collapse: collapse; border: none; margin: 0;">
+                        <tr>
+                            <td style="border: none; padding: 0; text-align: center;">
+                                <div style="display: inline-block; width: 340px; text-align: center;">
+                                    <div style="height: 55px;"></div>
+                                    <div style="border-top: 1.5px solid #475569; padding-top: 6px;">
+                                        <p style="margin: 0; font-weight: bold; color: #1e293b; font-size: 10pt; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            Nombre y firma de responsable
+                                        </p>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Apartado: Código QR para consultar progreso -->
+                <div class="qr-section">
+                    <table style="width: 100%; border-collapse: collapse; border: none; margin: 0;">
+                        <tr>
+                            <td style="width: 115px; vertical-align: middle; border: none; padding: 4px; text-align: center;">
+                                <div style="background: #ffffff; padding: 6px; border-radius: 8px; border: 1px solid #e2e8f0; display: inline-block;">
+                                    <img src="${qrDataUrl}" width="100" height="100" style="display: block; width: 100px; height: 100px;" alt="Código QR para consulta de progreso" />
+                                </div>
+                            </td>
+                            <td style="vertical-align: middle; border: none; padding: 4px 0 4px 15px;">
+                                <div style="margin-bottom: 4px;">
+                                    <strong style="color: #1e293b; font-size: 11pt;">📱 Consulta de Progreso en Cualquier Momento</strong>
+                                </div>
+                                <p style="margin: 0 0 6px 0; font-size: 9pt; color: #475569; line-height: 1.4;">
+                                    Escanee este código QR con la cámara de su celular para consultar el avance actualizado, actividades entregadas y reportes de <strong>${student.name}</strong> en cualquier momento.
+                                </p>
+                                <div style="font-size: 8pt; color: #64748b; word-break: break-all;">
+                                    <strong>Enlace directo:</strong> <span style="color: #4f46e5;">${studentPublicUrl}</span>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
             </div>
         `;
     },

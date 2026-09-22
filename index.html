@@ -27,7 +27,15 @@
     <!-- Tesseract.js para OCR de fotos e imágenes -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=3.8">
+    <!-- QRCode Generator -->
+    <script src="qrcode.min.js"></script>
+    <script>
+        if (typeof qrcode === 'undefined') {
+            document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"><\/script>');
+        }
+    </script>
+
+    <link rel="stylesheet" href="style.css?v=3.9">
 </head>
 
 <body>
@@ -118,7 +126,7 @@
         <!-- Student Registration View (Triggered by NFC link or manual) -->
         <main id="view-student" class="view">
             <header>
-                <button class="btn-back" onclick="app.showAdmin()">
+                <button class="btn-back admin-only" onclick="app.showAdmin()">
                     <i data-lucide="arrow-left"></i> Volver
                 </button>
                 <div class="student-info-header" style="display: flex; align-items: center; justify-content: space-between; flex: 1; margin: 0 10px;">
@@ -126,7 +134,7 @@
                         <h2 id="display-student-name">Nombre del Alumno</h2>
                         <p id="display-student-group">Grupo</p>
                     </div>
-                    <div class="student-nav-buttons" style="display: flex; gap: 4px;">
+                    <div class="student-nav-buttons admin-only" style="display: flex; gap: 4px;">
                         <button class="btn-icon" onclick="app.navigateStudent(-1)" title="Alumno Anterior">
                             <i data-lucide="chevron-left"></i>
                         </button>
@@ -163,7 +171,7 @@
                 </button>
             </div>
 
-            <div class="tabs-container admin-only">
+            <div class="tabs-container">
                 <button class="tab-btn active" onclick="app.switchTab('activities')">
                     <i data-lucide="list-checks"></i> Actividades
                 </button>
@@ -350,8 +358,8 @@
     <div id="toast-container" class="toast-container"></div>
     <div
         style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: var(--text-muted); opacity: 0.5; z-index: 9999;">
-        v3.8</div>
-    <script type="module" src="app.js?v=3.8"></script>
+        v3.9</div>
+    <script type="module" src="app.js?v=3.9"></script>
 </body>
 
 </html>
