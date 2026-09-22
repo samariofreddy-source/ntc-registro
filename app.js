@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { generateQRCodeDataURL } from "./qr-engine.js?v=3.11";
+import { generateQRCodeDataURL } from "./qr-engine.js?v=3.12";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDVVA8TGcU6GZcSlxijaTtwASfdp4t8YO0",
@@ -27,7 +27,7 @@ const app = {
     lastVisitedStudentId: null,
 
     init() {
-        console.log("FreddyApp v3.11 - Iniciando...");
+        console.log("FreddyApp v3.12 - Iniciando...");
         this.bindEvents();
         this.checkAdminSession(); // Verificar si ya hay una sesión activa
         this.loadData(); // loadData ahora llamará a checkRoute cuando los datos lleguen
@@ -2425,7 +2425,8 @@ const app = {
 
         const monthSuffix = month !== 'all' ? `_${month}` : '';
         const subjectSuffix = this.getSubjectSuffix();
-        this.execDownload(fullHtml, `Reportes_Individuales_${group.name.replace(/ /g, '_')}${subjectSuffix}${monthSuffix}.pdf`);
+        const safeGroupName = (group.name || 'Grupo').replace(/[^a-zA-Z0-9_-]/g, '_');
+        this.execDownload(fullHtml, `Reportes_Individuales_${safeGroupName}${subjectSuffix}${monthSuffix}.pdf`);
     },
 
     getStudentPublicUrl(studentId) {
@@ -2833,12 +2834,16 @@ const app = {
         this.showToast("Generando reporte...", "info");
         const isLandscape = html.includes('Act 8') || html.includes('Act 9') || html.includes('Act 10');
 
+        // Limpiar el nombre para asegurar que Chrome guarde con extensión .pdf explícita y no como UUID sin formato
+        const cleanName = (filename || 'Reporte.pdf').replace(/[\\/:*?"<>|]/g, '_');
+        const finalFilename = cleanName.toLowerCase().endsWith('.pdf') ? cleanName : `${cleanName}.pdf`;
+
         // Reset scroll position for the capture and wrap HTML
         const content = `<div style="position: relative; top: 0; left: 0; background: white; width: 100%; border: 1px solid transparent;">${html}</div>`;
 
         const opt = {
             margin: [10, 5, 10, 5],
-            filename: filename,
+            filename: finalFilename,
             image: { type: 'jpeg', quality: 0.98 },
             html2canvas: {
                 scale: 2,
@@ -2852,11 +2857,28 @@ const app = {
             pagebreak: { mode: ['css', 'legacy'] }
         };
 
-        html2pdf().set(opt).from(content).save().then(() => {
-            this.showToast("¡Listo!", "success");
+        // Generar Blob y descargar mediante enlace con atributo download explícito
+        html2pdf().set(opt).from(content).output('blob').then((blob) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = finalFilename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 3000);
+            this.showToast("¡Descarga lista!", "success");
         }).catch(err => {
-            console.error("PDF Fail:", err);
-            alert("No se pudo descargar directamente. Use 'Imprimir' y elija 'Guardar como PDF' como alternativa.");
+            console.error("PDF output blob fail, intentando save():", err);
+            html2pdf().set(opt).from(content).save(finalFilename).then(() => {
+                this.showToast("¡Descarga lista!", "success");
+            }).catch(e => {
+                console.error("Fallback PDF Fail:", e);
+                alert("No se pudo descargar directamente. Use 'Imprimir' y elija 'Guardar como PDF' como alternativa.");
+            });
         });
     },
 
