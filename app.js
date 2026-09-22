@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { generateQRCodeDataURL } from "./qr-engine.js?v=3.12";
+import { generateQRCodeDataURL } from "./qr-engine.js?v=3.13";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDVVA8TGcU6GZcSlxijaTtwASfdp4t8YO0",
@@ -27,7 +27,7 @@ const app = {
     lastVisitedStudentId: null,
 
     init() {
-        console.log("FreddyApp v3.12 - Iniciando...");
+        console.log("FreddyApp v3.13 - Iniciando...");
         this.bindEvents();
         this.checkAdminSession(); // Verificar si ya hay una sesión activa
         this.loadData(); // loadData ahora llamará a checkRoute cuando los datos lleguen
@@ -1446,15 +1446,18 @@ const app = {
                     </select>
                 </div>
 
-                <div style="display: grid; gap: 12px;">
+                <div style="display: grid; gap: 10px;">
                     <button class="btn-primary" onclick="app.downloadGroup('${targetId}', document.getElementById('modal-select-month').value); app.closeModal();" style="justify-content: center;">
-                        <i data-lucide="file-text"></i> Reporte General
+                        <i data-lucide="file-text"></i> Reporte General (PDF)
                     </button>
                     <button class="btn-primary" onclick="app.downloadGroupIndividualReports('${targetId}', document.getElementById('modal-select-month').value); app.closeModal();" style="justify-content: center; background-color: var(--accent);">
-                        <i data-lucide="users"></i> Individuales
+                        <i data-lucide="download"></i> Descargar Individuales (PDF)
+                    </button>
+                    <button class="btn-secondary" onclick="app.printGroupIndividualReports('${targetId}', document.getElementById('modal-select-month').value); app.closeModal();" style="justify-content: center; border: 1px solid var(--accent); color: var(--accent);">
+                        <i data-lucide="printer"></i> Imprimir Individuales (o Guardar PDF)
                     </button>
                     <button class="btn-secondary" onclick="app.printGroup('${targetId}', document.getElementById('modal-select-month').value); app.closeModal();" style="justify-content: center; border: 1px solid var(--glass-border); color: var(--text-main);">
-                        <i data-lucide="printer"></i> Imprimir Selección
+                        <i data-lucide="printer"></i> Imprimir Reporte General
                     </button>
                 </div>
             `;
@@ -2401,7 +2404,7 @@ const app = {
         lucide.createIcons();
     },
 
-    downloadGroupIndividualReports(groupId, month = 'all') {
+    printGroupIndividualReports(groupId, month = 'all') {
         const group = this.data.groups.find(g => g.id === groupId);
         if (!group) return;
 
@@ -2411,22 +2414,106 @@ const app = {
             return;
         }
 
-        this.showToast("Generando reportes individuales...", "info");
+        this.showToast(`Preparando ${students.length} reportes para imprimir...`, "info");
 
         let fullHtml = "";
         students.forEach((student, index) => {
             const studentWithGroup = this.findStudent(student.id);
-            const studentHtml = this.getStudentReportHTML(studentWithGroup, month);
-            fullHtml += studentHtml;
+            fullHtml += this.getStudentReportHTML(studentWithGroup, month);
             if (index < students.length - 1) {
-                fullHtml += '<div class="page-break"></div>';
+                fullHtml += '<div class="page-break" style="page-break-after: always; break-after: page;"></div>';
             }
         });
+
+        this.execPrint(fullHtml);
+    },
+
+    async downloadGroupIndividualReports(groupId, month = 'all') {
+        const group = this.data.groups.find(g => g.id === groupId);
+        if (!group) return;
+
+        const students = this.getStudentsArray(group);
+        if (students.length === 0) {
+            this.showToast("No hay alumnos en este grupo", "error");
+            return;
+        }
 
         const monthSuffix = month !== 'all' ? `_${month}` : '';
         const subjectSuffix = this.getSubjectSuffix();
         const safeGroupName = (group.name || 'Grupo').replace(/[^a-zA-Z0-9_-]/g, '_');
-        this.execDownload(fullHtml, `Reportes_Individuales_${safeGroupName}${subjectSuffix}${monthSuffix}.pdf`);
+        const finalFilename = `Reportes_Individuales_${safeGroupName}${subjectSuffix}${monthSuffix}.pdf`;
+
+        this.showToast(`Iniciando generación de ${students.length} reportes individuales...`, "info");
+
+        // Crear contenedor temporal fuera de pantalla pero dentro del DOM
+        const renderContainer = document.createElement('div');
+        renderContainer.id = 'bulk-pdf-render-box';
+        renderContainer.style.position = 'fixed';
+        renderContainer.style.left = '-9999px';
+        renderContainer.style.top = '0';
+        renderContainer.style.width = '794px'; // Ancho A4 exacto a 96 DPI
+        renderContainer.style.background = '#ffffff';
+        renderContainer.style.zIndex = '-99999';
+        document.body.appendChild(renderContainer);
+
+        try {
+            const { jsPDF } = window.jspdf || window;
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4',
+                compress: true
+            });
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+
+            for (let i = 0; i < students.length; i++) {
+                const s = students[i];
+                const studentWithGroup = this.findStudent(s.id);
+                if ((i + 1) % 5 === 0 || i === 0 || i === students.length - 1) {
+                    this.showToast(`Generando PDF: alumno ${i + 1} de ${students.length}...`, "info");
+                }
+
+                renderContainer.innerHTML = this.getStudentReportHTML(studentWithGroup, month);
+
+                // Pequeña pausa para asegurar renderizado del DOM e imágenes
+                await new Promise(resolve => setTimeout(resolve, 25));
+
+                const canvas = await html2canvas(renderContainer, {
+                    scale: 1.5,
+                    useCORS: true,
+                    logging: false,
+                    scrollX: 0,
+                    scrollY: 0,
+                    windowWidth: 794
+                });
+
+                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                if (i > 0) {
+                    pdf.addPage('a4', 'portrait');
+                }
+                pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            }
+
+            const blob = pdf.output('blob');
+            this.triggerBlobDownload(blob, finalFilename);
+            this.showToast(`¡Reportes individuales descargados! (${students.length} alumnos)`, "success");
+        } catch (err) {
+            console.error("Error en generación por alumno, intentando fallback:", err);
+            let fullHtml = "";
+            students.forEach((student, index) => {
+                const studentWithGroup = this.findStudent(student.id);
+                fullHtml += this.getStudentReportHTML(studentWithGroup, month);
+                if (index < students.length - 1) {
+                    fullHtml += '<div class="page-break"></div>';
+                }
+            });
+            this.execDownload(fullHtml, finalFilename);
+        } finally {
+            if (renderContainer.parentNode) {
+                renderContainer.parentNode.removeChild(renderContainer);
+            }
+        }
     },
 
     getStudentPublicUrl(studentId) {
@@ -2502,48 +2589,58 @@ const app = {
             <style>
                 @media print {
                     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                    .pdf-body { padding: 5mm; }
+                    .pdf-body { padding: 6mm; }
+                    .page-break { page-break-after: always; break-after: page; }
                 }
-                .pdf-body { font-family: Arial, sans-serif; padding: 10mm; color: #1e293b; }
-                table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 15px; }
-                th, td { border: 1px solid #cbd5e1; padding: 10px; text-align: left; font-size: 11pt; }
-                th { background: #f1f5f9; }
-                .report-title { color: #6366f1; margin-bottom: 5px; font-size: 22pt; font-weight: bold; }
-                .danger-title { color: #ef4444; margin-top: 30px; font-size: 14pt; font-weight: bold; }
-                .page-break { page-break-before: always; }
-                .summary-box { background: #f8fafc; border: 1px solid #6366f1; padding: 15px; border-radius: 8px; margin-top: 20px; }
-                .summary-item { margin: 8px 0; font-size: 11pt; color: #1e293b; }
-                .missing-list { color: #b91c1c; font-weight: bold; margin-top: 5px; font-size: 11pt; }
-                .completed-msg { color: #059669; font-weight: 700; font-size: 11pt; margin-top: 5px; }
-                .signature-section { margin-top: 35px; margin-bottom: 20px; page-break-inside: avoid; }
-                .qr-section { margin-top: 25px; padding: 12px 16px; border: 1.5px dashed #94a3b8; border-radius: 10px; background: #f8fafc; page-break-inside: avoid; }
+                .pdf-body { font-family: Arial, sans-serif; padding: 8mm; color: #1e293b; box-sizing: border-box; }
+                .report-title { color: #4f46e5; margin: 0 0 6px 0; font-size: 18pt; font-weight: bold; }
+                .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 15px; margin: 8px 0 10px 0; font-size: 9.5pt; color: #334155; }
+                .meta-item { line-height: 1.35; }
+                table.report-table { width: 100%; border-collapse: collapse; margin-top: 8px; margin-bottom: 8px; }
+                table.report-table th, table.report-table td { border: 1px solid #cbd5e1; padding: 6px 8px; text-align: left; font-size: 9pt; }
+                table.report-table th { background: #f1f5f9; font-weight: 600; color: #1e293b; }
+                .danger-title { color: #ef4444; margin-top: 10px; margin-bottom: 4px; font-size: 11pt; font-weight: bold; }
+                .summary-box { background: #f8fafc; border: 1px solid #c7d2fe; padding: 8px 12px; border-radius: 6px; margin-top: 8px; font-size: 9pt; }
+                .summary-item { margin: 2px 0; font-size: 9pt; color: #1e293b; }
+                .missing-list { color: #b91c1c; font-weight: bold; margin-top: 3px; font-size: 8.5pt; }
+                .completed-msg { color: #059669; font-weight: 700; font-size: 9pt; margin: 2px 0; }
+                .signature-section { margin-top: 20px; margin-bottom: 12px; page-break-inside: avoid; }
+                .qr-section { margin-top: 10px; padding: 8px 12px; border: 1.5px dashed #94a3b8; border-radius: 8px; background: #f8fafc; page-break-inside: avoid; }
             </style>
             <div class="pdf-body">
                 <h1 class="report-title">Historial del Alumno - ${subjectLabel}${monthTitle}</h1>
-                <p><strong>Alumno:</strong> ${student.name}</p>
-                <p><strong>Grupo:</strong> ${student.groupName || '-'}</p>
-                <p><strong>Fecha de Emisión:</strong> ${new Date().toLocaleDateString()}</p>
-                ${filterMonth !== 'all' ? `<p><strong>Mes del Reporte:</strong> ${monthTitle.replace(' - ', '')}</p>` : ''}
-                <p><strong>Reportes Totales:</strong> ${reports.length}</p>
-                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 15px 0;">
                 
-                <h2 style="font-size: 14pt; margin-top: 0;">Actividades</h2>
-                <table>
+                <div class="meta-grid">
+                    <div class="meta-item"><strong>Alumno:</strong> ${student.name}</div>
+                    <div class="meta-item"><strong>Grupo:</strong> ${student.groupName || '-'}</div>
+                    <div class="meta-item"><strong>Fecha de Emisión:</strong> ${new Date().toLocaleDateString()}</div>
+                    <div class="meta-item"><strong>Reportes Totales:</strong> ${reports.length}</div>
+                    ${filterMonth !== 'all' ? `<div class="meta-item"><strong>Mes del Reporte:</strong> ${monthTitle.replace(' - ', '')}</div>` : ''}
+                </div>
+                
+                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 8px 0;">
+                
+                <div style="font-size: 11pt; font-weight: bold; margin-top: 4px; margin-bottom: 4px; color: #1e293b;">Actividades Realizadas</div>
+                <table class="report-table">
                     <thead>
                         <tr>
-                            <th>Fecha</th>
-                            <th>Actividad</th>
-                            <th style="text-align: right;">Calificación</th>
+                            <th style="width: 25%;">Fecha</th>
+                            <th style="width: 55%;">Actividad</th>
+                            <th style="width: 20%; text-align: right;">Calificación</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${activities.map(act => `
+                        ${activities.length > 0 ? activities.map(act => `
                             <tr>
                                 <td>${new Date(act.date).toLocaleDateString()}</td>
                                 <td>${act.name}</td>
                                 <td style="text-align: right; font-weight: bold;">${act.grade}</td>
                             </tr>
-                        `).join('')}
+                        `).join('') : `
+                            <tr>
+                                <td colspan="3" style="text-align: center; color: #64748b; font-style: italic;">Sin actividades registradas en este periodo</td>
+                            </tr>
+                        `}
                     </tbody>
                 </table>
 
@@ -2556,8 +2653,8 @@ const app = {
                 </div>
 
                 ${(reports.length > 0) ? `
-                <h2 class="danger-title">Historial de Reportes</h2>
-                <table>
+                <div class="danger-title">Historial de Reportes</div>
+                <table class="report-table">
                     <thead>
                         <tr style="background: #fef2f2;">
                             <th style="width: 20%;">Fecha</th>
@@ -2582,10 +2679,10 @@ const app = {
                     <table style="width: 100%; border-collapse: collapse; border: none; margin: 0;">
                         <tr>
                             <td style="border: none; padding: 0; text-align: center;">
-                                <div style="display: inline-block; width: 340px; text-align: center;">
-                                    <div style="height: 55px;"></div>
-                                    <div style="border-top: 1.5px solid #475569; padding-top: 6px;">
-                                        <p style="margin: 0; font-weight: bold; color: #1e293b; font-size: 10pt; text-transform: uppercase; letter-spacing: 0.5px;">
+                                <div style="display: inline-block; width: 320px; text-align: center;">
+                                    <div style="height: 45px;"></div>
+                                    <div style="border-top: 1.5px solid #475569; padding-top: 5px;">
+                                        <p style="margin: 0; font-weight: bold; color: #1e293b; font-size: 9.5pt; text-transform: uppercase; letter-spacing: 0.5px;">
                                             Nombre y firma de responsable
                                         </p>
                                     </div>
@@ -2599,19 +2696,19 @@ const app = {
                 <div class="qr-section">
                     <table style="width: 100%; border-collapse: collapse; border: none; margin: 0;">
                         <tr>
-                            <td style="width: 115px; vertical-align: middle; border: none; padding: 4px; text-align: center;">
-                                <div style="background: #ffffff; padding: 4px; border-radius: 8px; border: 1px solid #cbd5e1; display: inline-block;">
-                                    <img src="${qrDataUrl}" width="100" height="100" style="display: block; width: 100px; height: 100px;" alt="Código QR para consulta de progreso" />
+                            <td style="width: 85px; vertical-align: middle; border: none; padding: 2px; text-align: center;">
+                                <div style="background: #ffffff; padding: 3px; border-radius: 6px; border: 1px solid #cbd5e1; display: inline-block;">
+                                    <img src="${qrDataUrl}" width="75" height="75" style="display: block; width: 75px; height: 75px;" alt="Código QR para consulta de progreso" />
                                 </div>
                             </td>
-                            <td style="vertical-align: middle; border: none; padding: 4px 0 4px 15px;">
-                                <div style="margin-bottom: 4px;">
-                                    <strong style="color: #1e293b; font-size: 11pt;">📱 Consulta de Progreso en Cualquier Momento</strong>
+                            <td style="vertical-align: middle; border: none; padding: 2px 0 2px 12px;">
+                                <div style="margin-bottom: 2px;">
+                                    <strong style="color: #1e293b; font-size: 9.5pt;">📱 Consulta de Progreso en Cualquier Momento</strong>
                                 </div>
-                                <p style="margin: 0 0 6px 0; font-size: 9pt; color: #475569; line-height: 1.4;">
+                                <p style="margin: 0 0 4px 0; font-size: 8pt; color: #475569; line-height: 1.35;">
                                     Escanee este código QR con la cámara de su celular para consultar el avance actualizado, actividades entregadas y reportes de <strong>${student.name}</strong> en cualquier momento.
                                 </p>
-                                <div style="font-size: 8pt; color: #64748b; word-break: break-all;">
+                                <div style="font-size: 7.5pt; color: #64748b; word-break: break-all;">
                                     <strong>Enlace directo:</strong> <span style="color: #4f46e5;">${studentPublicUrl}</span>
                                 </div>
                             </td>
@@ -2830,11 +2927,28 @@ const app = {
         }
     },
 
+    triggerBlobDownload(blob, filename) {
+        const cleanName = (filename || 'Reporte.pdf').replace(/[\\/:*?"<>|]/g, '_');
+        const finalFilename = cleanName.toLowerCase().endsWith('.pdf') ? cleanName : `${cleanName}.pdf`;
+        const pdfBlob = (blob.type === 'application/pdf') ? blob : new Blob([blob], { type: 'application/pdf' });
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = finalFilename;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+            if (a.parentNode) a.parentNode.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 60000);
+    },
+
     execDownload(html, filename) {
         this.showToast("Generando reporte...", "info");
         const isLandscape = html.includes('Act 8') || html.includes('Act 9') || html.includes('Act 10');
 
-        // Limpiar el nombre para asegurar que Chrome guarde con extensión .pdf explícita y no como UUID sin formato
         const cleanName = (filename || 'Reporte.pdf').replace(/[\\/:*?"<>|]/g, '_');
         const finalFilename = cleanName.toLowerCase().endsWith('.pdf') ? cleanName : `${cleanName}.pdf`;
 
@@ -2842,11 +2956,11 @@ const app = {
         const content = `<div style="position: relative; top: 0; left: 0; background: white; width: 100%; border: 1px solid transparent;">${html}</div>`;
 
         const opt = {
-            margin: [10, 5, 10, 5],
+            margin: [8, 5, 8, 5],
             filename: finalFilename,
-            image: { type: 'jpeg', quality: 0.98 },
+            image: { type: 'jpeg', quality: 0.95 },
             html2canvas: {
-                scale: 2,
+                scale: 1.5,
                 useCORS: true,
                 letterRendering: true,
                 scrollY: 0,
@@ -2857,23 +2971,14 @@ const app = {
             pagebreak: { mode: ['css', 'legacy'] }
         };
 
-        // Generar Blob y descargar mediante enlace con atributo download explícito
         html2pdf().set(opt).from(content).output('blob').then((blob) => {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = finalFilename;
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(() => {
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            }, 3000);
+            this.triggerBlobDownload(blob, finalFilename);
             this.showToast("¡Descarga lista!", "success");
         }).catch(err => {
-            console.error("PDF output blob fail, intentando save():", err);
-            html2pdf().set(opt).from(content).save(finalFilename).then(() => {
+            console.error("PDF output blob fail, intentando fallback:", err);
+            html2pdf().set(opt).from(content).toPdf().get('pdf').then((pdf) => {
+                const b = pdf.output('blob');
+                this.triggerBlobDownload(b, finalFilename);
                 this.showToast("¡Descarga lista!", "success");
             }).catch(e => {
                 console.error("Fallback PDF Fail:", e);

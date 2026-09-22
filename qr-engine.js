@@ -410,7 +410,7 @@ export function generateQRCodeDataURL(text) {
         if (typeof document !== 'undefined') {
             const count = qr.getModuleCount();
             const margin = 2;
-            const cellSize = 4;
+            const cellSize = 3;
             const size = (count + margin * 2) * cellSize;
             const canvas = document.createElement('canvas');
             canvas.width = size;
