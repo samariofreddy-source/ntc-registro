@@ -1271,6 +1271,56 @@ input:checked + .slider:before {
     100% { background: transparent; }
 }
 
+/* Apartado de Exámenes Styles */
+.student-exams-badge {
+    background: rgba(99, 102, 241, 0.2);
+    color: #a5b4fc;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-left: 4px;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+}
 
+.exam-card {
+    background: rgba(99, 102, 241, 0.04);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    animation: slideIn 0.3s ease-out forwards;
+    transition: var(--transition);
+}
 
+.exam-card:hover {
+    background: rgba(99, 102, 241, 0.08);
+    border-color: rgba(99, 102, 241, 0.45);
+    transform: translateY(-1px);
+}
 
+.exam-info {
+    flex: 1;
+}
+
+.exam-name {
+    font-weight: 600;
+    color: #e2e8f0;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.exam-grade {
+    font-weight: 700;
+    color: #a5b4fc;
+    background: rgba(99, 102, 241, 0.18);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 1.15rem;
+}

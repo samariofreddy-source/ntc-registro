@@ -31,7 +31,7 @@
     <!-- Tesseract.js para OCR de fotos e imágenes -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=3.15">
+    <link rel="stylesheet" href="style.css?v=3.16">
 </head>
 
 <body>
@@ -171,6 +171,9 @@
                 <button class="tab-btn active" onclick="app.switchTab('activities')">
                     <i data-lucide="list-checks"></i> Actividades
                 </button>
+                <button class="tab-btn" onclick="app.switchTab('exams')">
+                    <i data-lucide="file-check"></i> Exámenes
+                </button>
                 <button class="tab-btn" onclick="app.switchTab('reports')">
                     <i data-lucide="alert-triangle"></i> Reportes
                 </button>
@@ -190,7 +193,7 @@
                         </div>
                         <div class="form-group">
                             <label for="activity-name">Nombre de la Actividad</label>
-                            <input type="text" id="activity-name" placeholder="Ej. Tarea 1, Examen..."
+                            <input type="text" id="activity-name" placeholder="Ej. Tarea 1, Práctica 2..."
                                 list="activities-suggestions" required>
                             <datalist id="activities-suggestions"></datalist>
                         </div>
@@ -254,6 +257,75 @@
 
                     <div id="student-reports-summary-container">
                         <!-- Student reports summary will be rendered here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Exámenes (Apartado Exclusivo para Exámenes) -->
+            <div id="tab-content-exams" class="tab-content">
+                <div class="registration-form card admin-only">
+                    <h3 style="display: flex; align-items: center; gap: 8px;">
+                        <i data-lucide="file-check" style="color: var(--primary);"></i> Registrar Calificación de Examen
+                    </h3>
+                    <form id="form-add-exam">
+                        <div class="form-group">
+                            <label for="exam-subject">Materia</label>
+                            <select id="exam-subject" class="premium-select" required>
+                                <option value="tecnologia" selected>Tecnología</option>
+                                <option value="robotica">Robótica</option>
+                                <option value="cultura-digital">Cultura Digital</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="exam-name">Nombre del Examen</label>
+                            <input type="text" id="exam-name" placeholder="Ej. Examen 1, Examen Bimestral, Trimestre 1..."
+                                list="exams-suggestions" required>
+                            <datalist id="exams-suggestions"></datalist>
+                        </div>
+                        <div class="form-group">
+                            <label for="exam-grade">Calificación</label>
+                            <input type="number" id="exam-grade" min="0" max="100" placeholder="0-100" required>
+                            <div id="quick-grades-exam" class="quick-grades">
+                                <button type="button" class="btn-grade" onclick="app.setExamGrade(5)">5</button>
+                                <button type="button" class="btn-grade" onclick="app.setExamGrade(6)">6</button>
+                                <button type="button" class="btn-grade" onclick="app.setExamGrade(7)">7</button>
+                                <button type="button" class="btn-grade" onclick="app.setExamGrade(8)">8</button>
+                                <button type="button" class="btn-grade" onclick="app.setExamGrade(9)">9</button>
+                                <button type="button" class="btn-grade" onclick="app.setExamGrade(10)">10</button>
+                            </div>
+                        </div>
+                        <div class="form-group toggle-group" style="display: flex; align-items: center; justify-content: space-between; margin: 15px 0 10px 0;">
+                            <label for="exam-late" style="margin: 0; font-weight: 600; font-size: 0.9rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                                <i data-lucide="calendar-clock" style="width: 16px; height: 16px;"></i> Registrar con otra fecha
+                            </label>
+                            <label class="switch">
+                                <input type="checkbox" id="exam-late">
+                                <span class="slider round"></span>
+                            </label>
+                        </div>
+                        <div id="exam-date-container" class="form-group" style="display: none; margin-bottom: 15px;">
+                            <label for="exam-date">Fecha de Aplicación del Examen</label>
+                            <input type="date" id="exam-date" class="premium-input" style="width: 100%;">
+                        </div>
+                        <button type="submit" class="btn-submit" style="background: var(--primary);">Guardar Examen</button>
+                    </form>
+                </div>
+
+                <div class="activities-summary">
+                    <div class="summary-header">
+                        <h3>Historial de Exámenes</h3>
+                        <div style="display: flex; gap: 8px;">
+                            <div class="progress-badge" style="background: rgba(99, 102, 241, 0.2); color: #818cf8;">
+                                <span id="exams-total-text">0 Exámenes</span>
+                            </div>
+                            <div class="progress-badge" id="exams-avg-badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399;">
+                                <span id="exams-avg-text">Promedio: -</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="activities-list" id="exams-list">
+                        <!-- Exams will be rendered here -->
                     </div>
                 </div>
             </div>
@@ -354,8 +426,8 @@
     <div id="toast-container" class="toast-container"></div>
     <div
         style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: var(--text-muted); opacity: 0.5; z-index: 9999;">
-        v3.15</div>
-    <script type="module" src="app.js?v=3.15"></script>
+        v3.16</div>
+    <script type="module" src="app.js?v=3.16"></script>
 </body>
 
 </html>

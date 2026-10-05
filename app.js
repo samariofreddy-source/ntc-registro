@@ -153,6 +153,14 @@ const app = {
                                 if (!act.subject) act.subject = 'tecnologia';
                             });
                         }
+                        if (s.exams) {
+                            s.exams = Array.isArray(s.exams) ? s.exams : Object.values(s.exams);
+                            s.exams.forEach(ex => {
+                                if (!ex.subject) ex.subject = 'tecnologia';
+                            });
+                        } else {
+                            s.exams = [];
+                        }
                         if (s.reports) {
                             s.reports = Array.isArray(s.reports) ? s.reports : Object.values(s.reports);
                             s.reports.forEach(rep => {
@@ -204,6 +212,11 @@ const app = {
         return Array.isArray(student.activities) ? student.activities : Object.values(student.activities);
     },
 
+    getExamsArray(student) {
+        if (!student || !student.exams) return [];
+        return Array.isArray(student.exams) ? student.exams : Object.values(student.exams);
+    },
+
     getReportsArray(student) {
         if (!student || !student.reports) return [];
         return Array.isArray(student.reports) ? student.reports : Object.values(student.reports);
@@ -212,6 +225,18 @@ const app = {
     getFilteredActivities(student, subject = this.currentSubject) {
         const acts = this.getActivitiesArray(student);
         return acts.filter(act => act.subject === subject);
+    },
+
+    getFilteredExams(student, subject = this.currentSubject) {
+        const exams = this.getExamsArray(student);
+        return exams.filter(ex => ex.subject === subject);
+    },
+
+    getMaxExamsForGroup(group, subject = this.currentSubject) {
+        const students = this.getStudentsArray(group);
+        if (students.length === 0) return 0;
+        const counts = students.map(s => this.getFilteredExams(s, subject).length);
+        return Math.max(...counts, 0);
     },
 
     getFilteredReports(student, subject = this.currentSubject) {
@@ -249,13 +274,28 @@ const app = {
             lateSwitch.onchange = (e) => this.handleLateActivityChange(e.target.checked);
         }
 
+        const formExam = document.getElementById('form-add-exam');
+        if (formExam) formExam.onsubmit = (e) => this.handleExamSubmit(e);
+
+        const examLateSwitch = document.getElementById('exam-late');
+        if (examLateSwitch) {
+            examLateSwitch.onchange = (e) => this.handleLateExamChange(e.target.checked);
+        }
+
         const formReport = document.getElementById('form-add-report');
         if (formReport) formReport.onsubmit = (e) => this.handleReportSubmit(e);
 
         const gradeInput = document.getElementById('activity-grade');
         if (gradeInput) {
             gradeInput.oninput = () => {
-                document.querySelectorAll('.btn-grade').forEach(btn => btn.classList.remove('selected'));
+                document.querySelectorAll('#quick-grades .btn-grade').forEach(btn => btn.classList.remove('selected'));
+            };
+        }
+
+        const examGradeInput = document.getElementById('exam-grade');
+        if (examGradeInput) {
+            examGradeInput.oninput = () => {
+                document.querySelectorAll('#quick-grades-exam .btn-grade').forEach(btn => btn.classList.remove('selected'));
             };
         }
 
@@ -276,6 +316,11 @@ const app = {
         const actSubjectSelect = document.getElementById('activity-subject');
         if (actSubjectSelect) {
             actSubjectSelect.onchange = (e) => this.switchGlobalSubject(e.target.value);
+        }
+
+        const examSubjectSelect = document.getElementById('exam-subject');
+        if (examSubjectSelect) {
+            examSubjectSelect.onchange = (e) => this.switchGlobalSubject(e.target.value);
         }
 
         const repSubjectSelect = document.getElementById('report-subject');
@@ -300,10 +345,14 @@ const app = {
         const actSubjectSelect = document.getElementById('activity-subject');
         if (actSubjectSelect) actSubjectSelect.value = subject;
 
+        const examSubjectSelect = document.getElementById('exam-subject');
+        if (examSubjectSelect) examSubjectSelect.value = subject;
+
         const repSubjectSelect = document.getElementById('report-subject');
         if (repSubjectSelect) repSubjectSelect.value = subject;
 
         this.updateActivitySuggestions();
+        this.updateExamSuggestions();
 
         // Refresh views
         if (document.getElementById('view-admin').classList.contains('active')) {
@@ -486,6 +535,9 @@ const app = {
         const actSubjectSelect = document.getElementById('activity-subject');
         if (actSubjectSelect) actSubjectSelect.value = this.currentSubject;
 
+        const examSubjectSelect = document.getElementById('exam-subject');
+        if (examSubjectSelect) examSubjectSelect.value = this.currentSubject;
+
         const repSubjectSelect = document.getElementById('report-subject');
         if (repSubjectSelect) repSubjectSelect.value = this.currentSubject;
 
@@ -498,9 +550,20 @@ const app = {
             nameInput.value = lastActivity || '';
         }
 
+        // Auto-completar nombre de examen si ya se registró uno hoy para este grupo
+        const examNameInput = document.getElementById('exam-name');
+        if (examNameInput) {
+            const now = new Date();
+            const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            const lastExam = localStorage.getItem(`ntc_last_exam_${student.groupId}_${today}`);
+            examNameInput.value = lastExam || '';
+        }
+
         this.updateActivitySuggestions();
+        this.updateExamSuggestions();
         this.updateMonthSelector(student);
         this.renderStudentActivities(student);
+        this.renderStudentExams(student);
         this.renderStudentReports(student);
         lucide.createIcons(); // Asegurar que los botones de candado se vean
     },
@@ -509,10 +572,9 @@ const app = {
         const selector = document.getElementById('select-month');
         if (!selector) return;
 
-        const activities = this.getFilteredActivities(student, this.currentSubject);
         const months = new Set();
         
-        // También buscar meses de otros alumnos en el mismo grupo para que el selector sea consistente
+        // Buscar meses de actividades y exámenes de todos los alumnos del grupo
         const group = this.data.groups.find(g => String(g.id) === String(student.groupId));
         if (group) {
             const students = this.getStudentsArray(group);
@@ -520,6 +582,13 @@ const app = {
                 this.getFilteredActivities(s, this.currentSubject).forEach(act => {
                     if (act.date) {
                         const d = new Date(act.date);
+                        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        months.add(monthKey);
+                    }
+                });
+                this.getFilteredExams(s, this.currentSubject).forEach(ex => {
+                    if (ex.date) {
+                        const d = new Date(ex.date);
                         const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
                         months.add(monthKey);
                     }
@@ -546,6 +615,7 @@ const app = {
         const student = this.findStudent(this.currentStudentId);
         if (student) {
             this.renderStudentActivities(student);
+            this.renderStudentExams(student);
         }
     },
 
@@ -556,6 +626,25 @@ const app = {
             if (checked) {
                 container.style.display = 'block';
                 // Calcular el último día del mes anterior
+                const now = new Date();
+                const lastDayPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+                const year = lastDayPrevMonth.getFullYear();
+                const month = String(lastDayPrevMonth.getMonth() + 1).padStart(2, '0');
+                const day = String(lastDayPrevMonth.getDate()).padStart(2, '0');
+                dateInput.value = `${year}-${month}-${day}`;
+            } else {
+                container.style.display = 'none';
+                dateInput.value = '';
+            }
+        }
+    },
+
+    handleLateExamChange(checked) {
+        const container = document.getElementById('exam-date-container');
+        const dateInput = document.getElementById('exam-date');
+        if (container && dateInput) {
+            if (checked) {
+                container.style.display = 'block';
                 const now = new Date();
                 const lastDayPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0);
                 const year = lastDayPrevMonth.getFullYear();
@@ -629,6 +718,25 @@ const app = {
         });
 
         const datalist = document.getElementById('activities-suggestions');
+        if (datalist) {
+            datalist.innerHTML = Array.from(suggestions).map(name => `<option value="${name}">`).join('');
+        }
+    },
+
+    updateExamSuggestions() {
+        const suggestions = new Set();
+        const activeSubject = document.getElementById('exam-subject')?.value || this.currentSubject;
+        this.data.groups.forEach(group => {
+            const students = this.getStudentsArray(group);
+            students.forEach(student => {
+                const exams = this.getFilteredExams(student, activeSubject);
+                exams.forEach(ex => {
+                    if (ex.name) suggestions.add(ex.name);
+                });
+            });
+        });
+
+        const datalist = document.getElementById('exams-suggestions');
         if (datalist) {
             datalist.innerHTML = Array.from(suggestions).map(name => `<option value="${name}">`).join('');
         }
@@ -721,18 +829,20 @@ const app = {
                     ${students.length === 0 ? '<p class="empty-state">Sin alumnos</p>' :
                     students.map(student => {
                         const filteredActivities = this.getFilteredActivities(student, this.currentSubject);
+                        const filteredExams = this.getFilteredExams(student, this.currentSubject);
                         const filteredReports = this.getFilteredReports(student, this.currentSubject);
                         return `
                         <div class="student-item" data-student-id="${student.id}">
                             <div class="student-info">
                                 <div style="display:flex; align-items:center; gap:8px">
                                     <span class="student-name">${student.name}</span>
+                                    ${(filteredExams.length > 0) ? `<span class="student-exams-badge">${filteredExams.length} Ex.</span>` : ''}
                                     ${(filteredReports.length > 0) ? `<span class="student-reports-badge">${filteredReports.length} Rep.</span>` : ''}
                                     <button class="btn-icon admin-only" onclick="app.openModal('student', '${group.id}', '${student.name}', '${student.id}')" title="Editar Alumno">
                                         <i data-lucide="edit-3" style="width:12px"></i>
                                     </button>
                                 </div>
-                                <span class="student-meta">${filteredActivities.length} / ${maxActivities} actividades</span>
+                                <span class="student-meta">${filteredActivities.length} / ${maxActivities} actividades${filteredExams.length > 0 ? ` • ${filteredExams.length} examen${filteredExams.length > 1 ? 'es' : ''}` : ''}</span>
                             </div>
                             <div class="student-actions">
                                 <button class="btn-icon btn-nfc admin-only" onclick="app.copyNfcLink('${student.id}')" title="Copiar link para NFC">
@@ -1254,6 +1364,165 @@ const app = {
         }
     },
 
+    setExamGrade(grade) {
+        const input = document.getElementById('exam-grade');
+        if (input) {
+            input.value = grade;
+
+            document.querySelectorAll('#quick-grades-exam .btn-grade').forEach(btn => {
+                btn.classList.remove('selected');
+                if (parseInt(btn.textContent) === grade) {
+                    btn.classList.add('selected');
+                }
+            });
+
+            if (window.navigator && window.navigator.vibrate) {
+                window.navigator.vibrate(20);
+            }
+        }
+    },
+
+    handleExamSubmit(e) {
+        if (e) e.preventDefault();
+
+        if (!this.isAdmin) {
+            this.showToast("Debe iniciar sesión para realizar esta acción.", "error");
+            this.login();
+            return;
+        }
+
+        const nameInput = document.getElementById('exam-name');
+        const gradeInput = document.getElementById('exam-grade');
+        const subjectSelect = document.getElementById('exam-subject');
+        const name = nameInput.value.trim();
+        const grade = gradeInput.value;
+        const subject = subjectSelect ? subjectSelect.value : 'tecnologia';
+
+        // Manejo de fecha retroactiva
+        const lateSwitch = document.getElementById('exam-late');
+        const dateInput = document.getElementById('exam-date');
+        let examDate = new Date();
+
+        if (lateSwitch && lateSwitch.checked && dateInput && dateInput.value) {
+            const [year, month, day] = dateInput.value.split('-');
+            examDate = new Date(year, month - 1, day, 12, 0, 0);
+        }
+
+        const studentRef = this.findStudent(this.currentStudentId);
+        if (!studentRef) {
+            this.showToast("No se pudo encontrar el alumno para el registro", "error");
+            return;
+        }
+
+        const group = this.data.groups.find(g => String(g.id) === String(studentRef.groupId));
+        const students = this.getStudentsArray(group);
+        const student = students.find(s => String(s.id) === String(studentRef.id));
+
+        if (!student) {
+            this.showToast("Error al encontrar datos del alumno", "error");
+            return;
+        }
+
+        if (!student.exams) student.exams = [];
+
+        let exams = this.getExamsArray(student);
+        exams.push({
+            id: Date.now().toString(),
+            name,
+            grade,
+            subject,
+            date: examDate.toISOString()
+        });
+        student.exams = exams;
+
+        this.saveData();
+        this.updateExamSuggestions();
+
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        localStorage.setItem(`ntc_last_exam_${group.id}_${today}`, name);
+
+        this.renderStudentExams(student);
+        this.showToast("Calificación de examen guardada.", "success");
+
+        nameInput.value = localStorage.getItem(`ntc_last_exam_${group.id}_${today}`) || '';
+        gradeInput.value = '';
+        if (subjectSelect) subjectSelect.value = this.currentSubject;
+
+        if (lateSwitch) {
+            lateSwitch.checked = false;
+            this.handleLateExamChange(false);
+        }
+
+        document.querySelectorAll('#quick-grades-exam .btn-grade').forEach(btn => btn.classList.remove('selected'));
+    },
+
+    renderStudentExams(student) {
+        if (!student) return;
+        const list = document.getElementById('exams-list');
+        if (!list) return;
+
+        let exams = this.getFilteredExams(student, this.currentSubject);
+
+        if (this.selectedMonth !== 'all') {
+            exams = exams.filter(ex => {
+                const d = new Date(ex.date);
+                const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                return monthKey === this.selectedMonth;
+            });
+        }
+
+        const count = exams.length;
+        const totalText = document.getElementById('exams-total-text');
+        if (totalText) {
+            totalText.textContent = `${count} Examen${count === 1 ? '' : 'es'}`;
+        }
+
+        const avgBadge = document.getElementById('exams-avg-badge');
+        const avgText = document.getElementById('exams-avg-text');
+        if (avgText) {
+            if (count > 0) {
+                let total = 0;
+                exams.forEach(ex => {
+                    total += parseFloat(ex.grade) || 0;
+                });
+                const avg = (total / count).toFixed(1);
+                avgText.textContent = `Promedio: ${avg}`;
+                if (avgBadge) avgBadge.style.display = 'inline-flex';
+            } else {
+                avgText.textContent = `Promedio: -`;
+                if (avgBadge) avgBadge.style.display = 'none';
+            }
+        }
+
+        if (count === 0) {
+            list.innerHTML = `<p class="empty-state">No hay exámenes registrados para esta materia.</p>`;
+            return;
+        }
+
+        list.innerHTML = exams.map(ex => `
+            <div class="exam-card">
+                <div class="exam-info">
+                    <div class="exam-name">
+                        <i data-lucide="file-check" style="width: 18px; height: 18px; color: var(--primary);"></i>
+                        ${ex.name}
+                    </div>
+                    <p class="student-meta" style="margin-top: 4px;">${new Date(ex.date).toLocaleDateString()}</p>
+                </div>
+                <div class="activity-actions">
+                    <div class="exam-grade">${ex.grade}</div>
+                    <button class="btn-icon admin-only" onclick="app.editExam('${ex.id}')" title="Editar Examen">
+                        <i data-lucide="edit-2" style="width:16px"></i>
+                    </button>
+                    <button class="btn-icon danger admin-only" onclick="app.deleteExam('${ex.id}')" title="Eliminar Examen">
+                        <i data-lucide="trash-2" style="width:16px"></i>
+                    </button>
+                </div>
+            </div>
+        `).reverse().join('');
+        lucide.createIcons();
+    },
+
     handleReportSubmit(e) {
         if (e) e.preventDefault();
         if (!this.isAdmin) {
@@ -1737,6 +2006,58 @@ const app = {
         }
     },
 
+    editExam(examId) {
+        if (!this.isAdmin) {
+            this.showToast("No tiene permisos para editar.", "error");
+            return;
+        }
+        const studentRef = this.findStudent(this.currentStudentId);
+        if (!studentRef) return;
+
+        const group = this.data.groups.find(g => String(g.id) === String(studentRef.groupId));
+        const students = this.getStudentsArray(group);
+        const student = students.find(s => String(s.id) === String(studentRef.id));
+        const exams = this.getExamsArray(student);
+        const exam = exams.find(e => e.id === examId);
+
+        if (!exam) return;
+
+        const newName = prompt('Nombre del examen:', exam.name);
+        if (newName === null) return;
+        const newGrade = prompt('Calificación del examen:', exam.grade);
+        if (newGrade === null) return;
+
+        exam.name = newName;
+        exam.grade = newGrade;
+        this.saveData();
+        this.updateExamSuggestions();
+        this.renderStudentExams(student);
+        this.showToast("Examen actualizado.", "success");
+    },
+
+    deleteExam(examId) {
+        if (!this.isAdmin) {
+            this.showToast("No tiene permisos para eliminar.", "error");
+            return;
+        }
+        if (!confirm('¿Eliminar este examen?')) return;
+        const studentRef = this.findStudent(this.currentStudentId);
+        if (!studentRef) return;
+
+        const group = this.data.groups.find(g => String(g.id) === String(studentRef.groupId));
+        const students = this.getStudentsArray(group);
+        const student = students.find(s => String(s.id) === String(studentRef.id));
+
+        if (student && student.exams) {
+            const examsList = Array.isArray(student.exams) ? student.exams : Object.values(student.exams);
+            student.exams = examsList.filter(e => e.id !== examId);
+            this.saveData();
+            this.updateExamSuggestions();
+            this.renderStudentExams(student);
+            this.showToast("Examen eliminado.", "info");
+        }
+    },
+
     deleteStudent(groupId, studentId) {
         if (!this.isAdmin) return;
         if (!confirm('¿Seguro que quieres eliminar este alumno?')) return;
@@ -1754,7 +2075,7 @@ const app = {
 
         if (type === 'activities_only') {
             const confirmClear = confirm(
-                "⚠️ ¿Estás seguro de que deseas eliminar TODAS las actividades y reportes de todos los alumnos?\n\n" +
+                "⚠️ ¿Estás seguro de que deseas eliminar TODAS las actividades, exámenes y reportes de todos los alumnos?\n\n" +
                 "Se mantendrán los grupos y los nombres de los alumnos intactos para el nuevo ciclo escolar."
             );
             if (!confirmClear) return;
@@ -1763,13 +2084,14 @@ const app = {
                 const students = this.getStudentsArray(g);
                 students.forEach(s => {
                     s.activities = [];
+                    s.exams = [];
                     s.reports = [];
                 });
             });
 
             // Limpiar datos temporales en localStorage
             Object.keys(localStorage).forEach(key => {
-                if (key.startsWith('ntc_last_act_')) {
+                if (key.startsWith('ntc_last_act_') || key.startsWith('ntc_last_exam_')) {
                     localStorage.removeItem(key);
                 }
             });
@@ -1777,7 +2099,7 @@ const app = {
             this.saveData();
             this.closeModal();
             this.renderAdmin();
-            this.showToast("¡Actividades y reportes eliminados para el nuevo ciclo escolar!", "success");
+            this.showToast("¡Actividades, exámenes y reportes eliminados para el nuevo ciclo escolar!", "success");
         } else if (type === 'all') {
             const confirmClear = confirm(
                 "🚨 ¡ATENCIÓN! Estás a punto de ELIMINAR TODO.\n\n" +
@@ -2229,9 +2551,9 @@ const app = {
             return;
         }
 
-        // 1. Determinar la lista maestra de actividades (por posición/índice)
-        //    igual que en getGroupReportHTML: se usa el máximo de actividades
-        //    de cualquier alumno del grupo en el periodo indicado.
+        // ==========================================
+        // 1. RECOPILAR ACTIVIDADES DIARIAS (SIN EXÁMENES)
+        // ==========================================
         let maxActs = 0;
         students.forEach(s => {
             let acts = this.getFilteredActivities(s, this.currentSubject);
@@ -2245,7 +2567,6 @@ const app = {
             if (acts.length > maxActs) maxActs = acts.length;
         });
 
-        // Construir la lista de nombres de actividades usando el mismo algoritmo que el HTML
         const activityHeaders = [];
         for (let i = 0; i < maxActs; i++) {
             const studentWithAct = students.find(s => {
@@ -2274,11 +2595,8 @@ const app = {
             }
         }
 
-        // 2. Construir la hoja de datos
-        //    Fila 0 (encabezado): ['Alumno', act1, act2, ..., 'Promedio']
-        //    Filas siguientes: [nombre alumno, cal1, cal2, ..., promedio]
-        const header = ['Alumno', ...activityHeaders, 'Promedio'];
-        const rows = [header];
+        const actHeader = ['Alumno', ...activityHeaders, 'Promedio Actividades'];
+        const actRows = [actHeader];
 
         students.forEach(student => {
             let acts = this.getFilteredActivities(student, this.currentSubject);
@@ -2298,39 +2616,133 @@ const app = {
                 total += g;
             }
             const avg = maxActs > 0 ? parseFloat((total / maxActs).toFixed(1)) : 0;
-            rows.push([student.name, ...grades, avg]);
+            actRows.push([student.name, ...grades, avg]);
         });
 
-        // 3. Crear libro y hoja de Excel con SheetJS
+        // ==========================================
+        // 2. RECOPILAR EXÁMENES (SOLO EXÁMENES)
+        // ==========================================
+        let maxExams = 0;
+        students.forEach(s => {
+            let exList = this.getFilteredExams(s, this.currentSubject);
+            if (filterMonth !== 'all') {
+                exList = exList.filter(ex => {
+                    const d = new Date(ex.date);
+                    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    return monthKey === filterMonth;
+                });
+            }
+            if (exList.length > maxExams) maxExams = exList.length;
+        });
+
+        const examHeaders = [];
+        for (let i = 0; i < maxExams; i++) {
+            const studentWithExam = students.find(s => {
+                let exList = this.getFilteredExams(s, this.currentSubject);
+                if (filterMonth !== 'all') {
+                    exList = exList.filter(ex => {
+                        const d = new Date(ex.date);
+                        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        return monthKey === filterMonth;
+                    });
+                }
+                return !!exList[i];
+            });
+            if (studentWithExam) {
+                let exList = this.getFilteredExams(studentWithExam, this.currentSubject);
+                if (filterMonth !== 'all') {
+                    exList = exList.filter(ex => {
+                        const d = new Date(ex.date);
+                        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        return monthKey === filterMonth;
+                    });
+                }
+                examHeaders.push(exList[i].name || `Examen ${i + 1}`);
+            } else {
+                examHeaders.push(`Examen ${i + 1}`);
+            }
+        }
+
+        const examHeader = maxExams > 0 ? ['Alumno', ...examHeaders, 'Promedio Exámenes'] : ['Alumno', 'Sin exámenes registrados', 'Promedio Exámenes'];
+        const examRows = [examHeader];
+
+        students.forEach(student => {
+            let exList = this.getFilteredExams(student, this.currentSubject);
+            if (filterMonth !== 'all') {
+                exList = exList.filter(ex => {
+                    const d = new Date(ex.date);
+                    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    return monthKey === filterMonth;
+                });
+            }
+
+            if (maxExams === 0) {
+                examRows.push([student.name, '-', '-']);
+            } else {
+                const grades = [];
+                let total = 0;
+                let count = 0;
+                for (let i = 0; i < maxExams; i++) {
+                    if (exList[i] && exList[i].grade !== undefined && exList[i].grade !== '') {
+                        const g = parseFloat(exList[i].grade) || 0;
+                        grades.push(g);
+                        total += g;
+                        count++;
+                    } else {
+                        grades.push('-');
+                    }
+                }
+                const avg = count > 0 ? parseFloat((total / count).toFixed(1)) : '-';
+                examRows.push([student.name, ...grades, avg]);
+            }
+        });
+
+        // 3. Crear libro de Excel con SheetJS
         if (typeof XLSX === 'undefined') {
             this.showToast('La librería Excel no está disponible. Verifique su conexión.', 'error');
             return;
         }
 
-        const ws = XLSX.utils.aoa_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
-        // Ajustar anchos de columna automáticamente
-        const colWidths = header.map((h, ci) => {
+        // --- Hoja 1: Calificaciones de Actividades ---
+        const wsActs = XLSX.utils.aoa_to_sheet(actRows);
+        wsActs['!cols'] = actHeader.map((h, ci) => {
             let max = h.length;
-            rows.slice(1).forEach(row => {
+            actRows.slice(1).forEach(row => {
                 const val = row[ci] !== undefined ? String(row[ci]) : '';
                 if (val.length > max) max = val.length;
             });
             return { wch: Math.min(Math.max(max + 2, 10), 40) };
         });
-        ws['!cols'] = colWidths;
 
-        const wb = XLSX.utils.book_new();
-        const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-        let sheetName = 'Calificaciones';
+        let actSheetName = 'Actividades';
         if (filterMonth !== 'all') {
             const [year, month] = filterMonth.split('-');
-            sheetName = `${monthNames[parseInt(month) - 1]} ${year}`;
+            actSheetName = `Actividades - ${monthNames[parseInt(month) - 1]}`;
         }
-        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        XLSX.utils.book_append_sheet(wb, wsActs, actSheetName);
 
-        // --- Segunda hoja: Tabla de actividades desarrolladas ---
-        // Función auxiliar para convertir número a romano
+        // --- Hoja 2: Calificaciones de Exámenes (Separado exclusivamente para exámenes) ---
+        const wsExams = XLSX.utils.aoa_to_sheet(examRows);
+        wsExams['!cols'] = examHeader.map((h, ci) => {
+            let max = h.length;
+            examRows.slice(1).forEach(row => {
+                const val = row[ci] !== undefined ? String(row[ci]) : '';
+                if (val.length > max) max = val.length;
+            });
+            return { wch: Math.min(Math.max(max + 2, 10), 40) };
+        });
+
+        let examSheetName = 'Exámenes';
+        if (filterMonth !== 'all') {
+            const [year, month] = filterMonth.split('-');
+            examSheetName = `Exámenes - ${monthNames[parseInt(month) - 1]}`;
+        }
+        XLSX.utils.book_append_sheet(wb, wsExams, examSheetName);
+
+        // --- Hoja 3: Tabla de Actividades Desarrolladas ---
         const toRoman = (num) => {
             const vals = [1000,900,500,400,100,90,50,40,10,9,5,4,1];
             const syms = ['M','CM','D','CD','C','XC','L','XL','X','IX','V','IV','I'];
@@ -2339,11 +2751,11 @@ const app = {
             return result;
         };
 
-        // Recopilar todas las actividades únicas (por posición) con su fecha
-        // Usamos el mismo activityHeaders que ya calculamos + las fechas
+        const shortMonthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+        const subjectLabel = this.getSubjectLabel();
+
         const activityDates = [];
         for (let i = 0; i < maxActs; i++) {
-            // Buscar el primer alumno que tenga la actividad en esa posición
             let foundDate = null;
             students.forEach(s => {
                 if (foundDate) return;
@@ -2362,16 +2774,9 @@ const app = {
             activityDates.push(foundDate);
         }
 
-        // Construir filas de la segunda hoja
-        // Fila 0: Título fusionado
-        // Fila 1: Encabezados de columna
-        // Filas 2+: datos
         const tableRows = [];
-        const subjectLabel = this.getSubjectLabel();
         tableRows.push(['Tabla de actividades desarrolladas - ' + subjectLabel, '', '', '', '']);
         tableRows.push(['Número de Actividad', 'Título de la Actividad', 'Día', 'Mes', 'Año']);
-
-        const shortMonthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
         for (let i = 0; i < maxActs; i++) {
             const d = activityDates[i];
@@ -2383,27 +2788,72 @@ const app = {
             tableRows.push([roman, actName, day, mon, yr]);
         }
 
-        const ws2 = XLSX.utils.aoa_to_sheet(tableRows);
-
-        // Fusionar la celda del título (A1:E1)
-        ws2['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
-
-        // Anchos de columna para la tabla de actividades
-        ws2['!cols'] = [
-            { wch: 18 }, // Número de Actividad
-            { wch: 45 }, // Título de la Actividad
-            { wch: 8  }, // Día
-            { wch: 14 }, // Mes
-            { wch: 8  }  // Año
+        const ws3 = XLSX.utils.aoa_to_sheet(tableRows);
+        ws3['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
+        ws3['!cols'] = [
+            { wch: 18 },
+            { wch: 45 },
+            { wch: 8  },
+            { wch: 14 },
+            { wch: 8  }
         ];
+        XLSX.utils.book_append_sheet(wb, ws3, 'Tabla de Actividades');
 
-        XLSX.utils.book_append_sheet(wb, ws2, 'Tabla de Actividades');
+        // --- Hoja 4: Tabla de Exámenes Desarrollados / Aplicados ---
+        const examDates = [];
+        for (let i = 0; i < maxExams; i++) {
+            let foundDate = null;
+            students.forEach(s => {
+                if (foundDate) return;
+                let exList = this.getFilteredExams(s, this.currentSubject);
+                if (filterMonth !== 'all') {
+                    exList = exList.filter(ex => {
+                        const d = new Date(ex.date);
+                        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        return monthKey === filterMonth;
+                    });
+                }
+                if (exList[i] && exList[i].date) {
+                    foundDate = new Date(exList[i].date);
+                }
+            });
+            examDates.push(foundDate);
+        }
+
+        const examTableRows = [];
+        examTableRows.push(['Tabla de exámenes aplicados - ' + subjectLabel, '', '', '', '']);
+        examTableRows.push(['Número de Examen', 'Título del Examen', 'Día', 'Mes', 'Año']);
+
+        if (maxExams === 0) {
+            examTableRows.push(['-', 'Sin exámenes registrados en este periodo', '', '', '']);
+        } else {
+            for (let i = 0; i < maxExams; i++) {
+                const d = examDates[i];
+                const roman = toRoman(i + 1);
+                const exName = examHeaders[i] || `Examen ${i + 1}`;
+                const day   = d ? d.getDate() : '';
+                const mon   = d ? shortMonthNames[d.getMonth()] : '';
+                const yr    = d ? d.getFullYear() : '';
+                examTableRows.push([roman, exName, day, mon, yr]);
+            }
+        }
+
+        const ws4 = XLSX.utils.aoa_to_sheet(examTableRows);
+        ws4['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
+        ws4['!cols'] = [
+            { wch: 18 },
+            { wch: 45 },
+            { wch: 8  },
+            { wch: 14 },
+            { wch: 8  }
+        ];
+        XLSX.utils.book_append_sheet(wb, ws4, 'Tabla de Exámenes');
 
         const monthSuffix = filterMonth !== 'all' ? `_${filterMonth}` : '';
         const subjectSuffix = this.getSubjectSuffix();
         const filename = `Calificaciones_${group.name.replace(/ /g, '_')}${subjectSuffix}${monthSuffix}.xlsx`;
         XLSX.writeFile(wb, filename);
-        this.showToast('Excel descargado correctamente.', 'success');
+        this.showToast('Excel descargado correctamente con hojas separadas para Actividades y Exámenes.', 'success');
     },
 
 
@@ -2462,16 +2912,33 @@ const app = {
 
     getStudentReportHTML(student, filterMonth = 'all') {
         let activities = this.getFilteredActivities(student, this.currentSubject);
+        let exams = this.getFilteredExams(student, this.currentSubject);
         const reports = this.getFilteredReports(student, this.currentSubject);
 
-        // Filtrar actividades por mes si es necesario
+        // Filtrar actividades y exámenes por mes si es necesario
         if (filterMonth !== 'all') {
             activities = activities.filter(act => {
                 const d = new Date(act.date);
                 const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
                 return monthKey === filterMonth;
             });
+            exams = exams.filter(ex => {
+                const d = new Date(ex.date);
+                const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                return monthKey === filterMonth;
+            });
         }
+
+        // Calcular promedio de exámenes
+        let examTotal = 0;
+        let examCount = 0;
+        exams.forEach(ex => {
+            if (ex.grade !== undefined && ex.grade !== '') {
+                examTotal += parseFloat(ex.grade) || 0;
+                examCount++;
+            }
+        });
+        const examAvg = examCount > 0 ? (examTotal / examCount).toFixed(1) : '-';
 
         // Calcular progreso y actividades faltantes
         const group = this.data.groups.find(g => String(g.id) === String(student.groupId));
@@ -2571,7 +3038,8 @@ const app = {
                 
                 <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 8px 0;">
                 
-                <div style="font-size: 11pt; font-weight: bold; margin-top: 4px; margin-bottom: 4px; color: #1e293b;">Actividades Realizadas</div>
+                <!-- Apartado: Actividades y Tareas Diarias -->
+                <div style="font-size: 11pt; font-weight: bold; margin-top: 4px; margin-bottom: 4px; color: #1e293b;">Actividades y Tareas Realizadas</div>
                 <table class="report-table">
                     <thead>
                         <tr>
@@ -2596,12 +3064,40 @@ const app = {
                 </table>
 
                 <div class="summary-box">
-                    <p class="summary-item"><strong>Resumen de Progreso:</strong> ${currentCount} actividades de ${totalPossible} totales (${currentCount}/${totalPossible})</p>
+                    <p class="summary-item"><strong>Resumen de Progreso de Actividades:</strong> ${currentCount} actividades de ${totalPossible} totales (${currentCount}/${totalPossible})</p>
                     ${missingActNames.length > 0 ? `
                         <p class="summary-item"><strong>Actividades faltantes:</strong></p>
                         <p class="missing-list">${missingActNames.join(', ')}</p>
                     ` : '<p class="completed-msg">¡Felicidades! Todas las actividades han sido completadas.</p>'}
                 </div>
+
+                <!-- Apartado: Exámenes (Exclusivo para Exámenes) -->
+                <div style="font-size: 11pt; font-weight: bold; margin-top: 10px; margin-bottom: 4px; color: #4f46e5; display: flex; justify-content: space-between; align-items: center;">
+                    <span>Exámenes y Evaluaciones</span>
+                    ${exams.length > 0 ? `<span style="font-size: 8.5pt; font-weight: bold; color: #334155; background: #eef2ff; border: 1px solid #c7d2fe; padding: 2px 8px; border-radius: 4px;">Promedio Exámenes: <span style="color: #4f46e5;">${examAvg}</span></span>` : ''}
+                </div>
+                <table class="report-table">
+                    <thead>
+                        <tr style="background: #eef2ff;">
+                            <th style="width: 25%;">Fecha</th>
+                            <th style="width: 55%;">Examen</th>
+                            <th style="width: 20%; text-align: right;">Calificación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${exams.length > 0 ? exams.map(ex => `
+                            <tr>
+                                <td>${new Date(ex.date).toLocaleDateString()}</td>
+                                <td style="font-weight: 600; color: #1e293b;">${ex.name}</td>
+                                <td style="text-align: right; font-weight: bold; color: #4f46e5;">${ex.grade}</td>
+                            </tr>
+                        `).join('') : `
+                            <tr>
+                                <td colspan="3" style="text-align: center; color: #64748b; font-style: italic;">Sin exámenes registrados en este periodo</td>
+                            </tr>
+                        `}
+                    </tbody>
+                </table>
 
                 ${(reports.length > 0) ? `
                 <div class="danger-title">Historial de Reportes</div>
@@ -2657,7 +3153,7 @@ const app = {
                                     <strong style="color: #1e293b; font-size: 9.5pt;">📱 Consulta de Progreso en Cualquier Momento</strong>
                                 </div>
                                 <p style="margin: 0 0 4px 0; font-size: 8pt; color: #475569; line-height: 1.35;">
-                                    Escanee este código QR con la cámara de su celular para consultar el avance actualizado, actividades entregadas y reportes de <strong>${student.name}</strong> en cualquier momento.
+                                    Escanee este código QR con la cámara de su celular para consultar el avance actualizado, actividades entregadas, exámenes y reportes de <strong>${student.name}</strong> en cualquier momento.
                                 </p>
                                 <div style="font-size: 7.5pt; color: #64748b; word-break: break-all;">
                                     <strong>Enlace directo:</strong> <span style="color: #4f46e5;">${studentPublicUrl}</span>
@@ -2722,6 +3218,55 @@ const app = {
             }
         }
 
+        // Determinar el máximo de exámenes para el periodo
+        let maxExams = 0;
+        if (filterMonth !== 'all') {
+            students.forEach(s => {
+                const sExams = this.getFilteredExams(s, this.currentSubject).filter(ex => {
+                    const d = new Date(ex.date);
+                    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    return monthKey === filterMonth;
+                });
+                if (sExams.length > maxExams) maxExams = sExams.length;
+            });
+        } else {
+            maxExams = this.getMaxExamsForGroup(group, this.currentSubject);
+        }
+
+        let examList = [];
+        for (let i = 0; i < maxExams; i++) {
+            const studentWithExam = students.find(s => {
+                let exList = this.getFilteredExams(s, this.currentSubject);
+                if (filterMonth !== 'all') {
+                    exList = exList.filter(ex => {
+                        const d = new Date(ex.date);
+                        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        return monthKey === filterMonth;
+                    });
+                }
+                return exList[i];
+            });
+
+            let sample = null;
+            if (studentWithExam) {
+                let exList = this.getFilteredExams(studentWithExam, this.currentSubject);
+                if (filterMonth !== 'all') {
+                    exList = exList.filter(ex => {
+                        const d = new Date(ex.date);
+                        const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                        return monthKey === filterMonth;
+                    });
+                }
+                sample = exList[i];
+            }
+
+            if (sample) {
+                examList.push({ num: i + 1, name: sample.name, date: new Date(sample.date).toLocaleDateString() });
+            } else {
+                examList.push({ num: i + 1, name: `Examen ${i + 1}`, date: '-' });
+            }
+        }
+
         const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
         let monthTitle = "";
         if (filterMonth !== 'all') {
@@ -2752,38 +3297,38 @@ const app = {
                     <span><strong>Fecha de Emisión:</strong> ${new Date().toLocaleDateString()}</span>
                 </div>
                 
-                <h2 class="sub-heading">Cuadro de Calificaciones</h2>
+                <h2 class="sub-heading">Cuadro de Actividades Diarias</h2>
                 <table>
                     <thead>
                         <tr style="background: #f8fafc;">
                             <th class="text-left">Alumno</th>
                             ${activityList.map(a => `<th>Act ${a.num}</th>`).join('')}
-                            <th style="background: #e0e7ff;">Prom</th>
+                            <th style="background: #e0e7ff;">Prom. Act</th>
                             <th style="background: #fee2e2;">Rep</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${students.map(student => {
-            let total = 0;
-            let acts = this.getFilteredActivities(student, this.currentSubject);
-            if (filterMonth !== 'all') {
-                acts = acts.filter(act => {
-                    const d = new Date(act.date);
-                    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                    return monthKey === filterMonth;
-                });
-            }
-            const reports = this.getFilteredReports(student, this.currentSubject);
-            const studentGrades = [];
+                            let total = 0;
+                            let acts = this.getFilteredActivities(student, this.currentSubject);
+                            if (filterMonth !== 'all') {
+                                acts = acts.filter(act => {
+                                    const d = new Date(act.date);
+                                    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                                    return monthKey === filterMonth;
+                                });
+                            }
+                            const reports = this.getFilteredReports(student, this.currentSubject);
+                            const studentGrades = [];
 
-            for (let i = 0; i < maxActs; i++) {
-                const gradeValue = acts[i] ? parseFloat(acts[i].grade) : 0;
-                studentGrades.push(gradeValue);
-                total += gradeValue;
-            }
-            const avg = maxActs > 0 ? (total / maxActs).toFixed(1) : "0.0";
-            const reportCount = reports.length;
-            return `
+                            for (let i = 0; i < maxActs; i++) {
+                                const gradeValue = acts[i] ? parseFloat(acts[i].grade) : 0;
+                                studentGrades.push(gradeValue);
+                                total += gradeValue;
+                            }
+                            const avg = maxActs > 0 ? (total / maxActs).toFixed(1) : "0.0";
+                            const reportCount = reports.length;
+                            return `
                                 <tr>
                                     <td class="text-left" style="font-weight: 600;">${student.name}</td>
                                     ${studentGrades.map(g => `<td style="color: ${g === 0 ? '#94a3b8' : '#1e293b'}">${g}</td>`).join('')}
@@ -2791,9 +3336,61 @@ const app = {
                                     <td style="font-weight: bold; color: ${reportCount > 0 ? '#ef4444' : '#94a3b8'}">${reportCount}</td>
                                 </tr>
                             `;
-        }).join('')}
+                        }).join('')}
                     </tbody>
                 </table>
+
+                <!-- Apartado: Cuadro de Exámenes (Separado exclusivamente para exámenes) -->
+                <h2 class="sub-heading" style="margin-top: 25px; border-bottom-color: #4f46e5; color: #312e81;">Cuadro de Exámenes</h2>
+                ${maxExams > 0 ? `
+                <table>
+                    <thead>
+                        <tr style="background: #eef2ff;">
+                            <th class="text-left">Alumno</th>
+                            ${examList.map(e => `<th>Ex ${e.num}</th>`).join('')}
+                            <th style="background: #e0e7ff; color: #4338ca;">Prom. Exámenes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${students.map(student => {
+                            let total = 0;
+                            let exList = this.getFilteredExams(student, this.currentSubject);
+                            if (filterMonth !== 'all') {
+                                exList = exList.filter(ex => {
+                                    const d = new Date(ex.date);
+                                    const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                                    return monthKey === filterMonth;
+                                });
+                            }
+                            const examGrades = [];
+                            let countWithGrade = 0;
+
+                            for (let i = 0; i < maxExams; i++) {
+                                if (exList[i] && exList[i].grade !== undefined && exList[i].grade !== '') {
+                                    const gradeVal = parseFloat(exList[i].grade) || 0;
+                                    examGrades.push(gradeVal);
+                                    total += gradeVal;
+                                    countWithGrade++;
+                                } else {
+                                    examGrades.push('-');
+                                }
+                            }
+                            const avg = countWithGrade > 0 ? (total / countWithGrade).toFixed(1) : "-";
+                            return `
+                                <tr>
+                                    <td class="text-left" style="font-weight: 600;">${student.name}</td>
+                                    ${examGrades.map(g => `<td style="color: ${g === '-' ? '#94a3b8' : '#1e293b'}; font-weight: ${g === '-' ? 'normal' : '600'};">${g}</td>`).join('')}
+                                    <td style="font-weight: bold; background: #eef2ff; color: #4338ca;">${avg}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+                ` : `
+                <div style="padding: 12px; border: 1px dashed #cbd5e1; border-radius: 6px; text-align: center; color: #64748b; font-style: italic; margin-top: 10px;">
+                    No se han registrado exámenes en este periodo.
+                </div>
+                `}
 
                 <div class="signature-container">
                     <div class="signature-box">
@@ -2806,7 +3403,7 @@ const app = {
                 </div>
 
                 <div class="page-break"></div>
-                <h2 class="sub-heading">Lista de Actividades</h2>
+                <h2 class="sub-heading">Lista de Actividades Desarrolladas</h2>
                 <table>
                     <thead>
                         <tr style="background: #f8fafc;">
@@ -2825,6 +3422,28 @@ const app = {
                         `).join('')}
                     </tbody>
                 </table>
+
+                ${examList.length > 0 ? `
+                <h2 class="sub-heading" style="margin-top: 25px; border-bottom-color: #4f46e5; color: #312e81;">Lista de Exámenes Registrados</h2>
+                <table>
+                    <thead>
+                        <tr style="background: #eef2ff;">
+                            <th style="width: 40px;">#</th>
+                            <th class="text-left">Nombre del Examen</th>
+                            <th class="text-left">Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${examList.map(e => `
+                            <tr>
+                                <td style="font-weight: 600; color: #4338ca;">${e.num}</td>
+                                <td class="text-left" style="font-weight: 600;">${e.name}</td>
+                                <td class="text-left" style="color: #64748b;">${e.date}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                ` : ''}
 
                 <div class="signature-container">
                     <div class="signature-box">
