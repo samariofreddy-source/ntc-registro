@@ -1127,11 +1127,17 @@ const app = {
         if (matches.length > 0) {
             resultsDiv.style.display = 'block';
             resultsDiv.innerHTML = matches.map(m => `
-                <div class="search-result-item" onclick="app.selectSearchResult('${m.id}')">
+                <div class="search-result-item" data-student-id="${m.id}">
                     <span class="name">${m.name}</span>
                     <span class="group">${m.groupName}</span>
                 </div>
             `).join('');
+            // Usar delegación de eventos para evitar problemas con IDs especiales
+            resultsDiv.querySelectorAll('.search-result-item[data-student-id]').forEach(el => {
+                el.addEventListener('click', () => {
+                    this.selectSearchResult(el.getAttribute('data-student-id'));
+                });
+            });
         } else {
             resultsDiv.style.display = 'block';
             resultsDiv.innerHTML = `<div class="search-result-item"><span class="group">No se encontraron alumnos</span></div>`;
@@ -1139,6 +1145,7 @@ const app = {
     },
 
     selectSearchResult(studentId) {
+        // Limpiar campos de búsqueda
         const inputAdmin = document.getElementById('input-search-student');
         if (inputAdmin) inputAdmin.value = '';
         const inputStudent = document.getElementById('input-search-student-view');
@@ -1148,7 +1155,7 @@ const app = {
         const resStudent = document.getElementById('search-results-student');
         if (resStudent) resStudent.style.display = 'none';
 
-        window.location.hash = `student/${studentId}`;
+        // Solo navegar con showStudent (no cambiar hash manualmente para evitar doble disparo)
         this.showStudent(studentId);
     },
 
