@@ -317,7 +317,10 @@ const app = {
         // Close search if clicking outside
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.search-container')) {
-                document.getElementById('search-results').style.display = 'none';
+                const resAdmin = document.getElementById('search-results');
+                if (resAdmin) resAdmin.style.display = 'none';
+                const resStudent = document.getElementById('search-results-student');
+                if (resStudent) resStudent.style.display = 'none';
             }
         });
 
@@ -400,6 +403,14 @@ const app = {
         document.getElementById('group-navigation').style.display = 'none';
         document.body.classList.remove('is-group-isolated');
         window.location.hash = '';
+        const searchInputStudent = document.getElementById('input-search-student-view');
+        if (searchInputStudent) searchInputStudent.value = '';
+        const resStudent = document.getElementById('search-results-student');
+        if (resStudent) resStudent.style.display = 'none';
+        const searchInputAdmin = document.getElementById('input-search-student');
+        if (searchInputAdmin) searchInputAdmin.value = '';
+        const resAdmin = document.getElementById('search-results');
+        if (resAdmin) resAdmin.style.display = 'none';
         this.renderAdmin();
         this.restoreAdminScroll();
     },
@@ -449,6 +460,10 @@ const app = {
         // 1. Cambiar a la vista de alumno inmediatamente
         document.getElementById('view-admin').classList.remove('active');
         document.getElementById('view-student').classList.add('active');
+        const searchInputStudent = document.getElementById('input-search-student-view');
+        if (searchInputStudent) searchInputStudent.value = '';
+        const resStudent = document.getElementById('search-results-student');
+        if (resStudent) resStudent.style.display = 'none';
 
         // 2. Si los datos no han cargado, no podemos hacer más
         if (!this.dataLoaded) {
@@ -1080,18 +1095,30 @@ const app = {
         this.renderAdmin();
     },
 
-    handleSearch(query) {
-        const resultsDiv = document.getElementById('search-results');
+    handleSearch(query, source = 'admin') {
+        const isStudent = source === 'student';
+        const resultsDiv = isStudent 
+            ? document.getElementById('search-results-student') 
+            : document.getElementById('search-results');
+        const otherDiv = isStudent 
+            ? document.getElementById('search-results') 
+            : document.getElementById('search-results-student');
+        if (otherDiv) otherDiv.style.display = 'none';
+
+        if (!resultsDiv) return;
+
         if (!query.trim()) {
             resultsDiv.style.display = 'none';
             return;
         }
 
+        const cleanQuery = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
         const matches = [];
         this.data.groups.forEach(group => {
             const students = this.getStudentsArray(group);
             students.forEach(student => {
-                if (student.name.toLowerCase().includes(query.toLowerCase())) {
+                const cleanName = (student.name || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                if (cleanName.includes(cleanQuery)) {
                     matches.push({ ...student, groupName: group.name });
                 }
             });
@@ -1100,15 +1127,29 @@ const app = {
         if (matches.length > 0) {
             resultsDiv.style.display = 'block';
             resultsDiv.innerHTML = matches.map(m => `
-                <div class="search-result-item" onclick="window.location.hash='student/${m.id}'; document.getElementById('input-search-student').value='';">
+                <div class="search-result-item" onclick="app.selectSearchResult('${m.id}')">
                     <span class="name">${m.name}</span>
                     <span class="group">${m.groupName}</span>
                 </div>
-    `).join('');
+            `).join('');
         } else {
             resultsDiv.style.display = 'block';
             resultsDiv.innerHTML = `<div class="search-result-item"><span class="group">No se encontraron alumnos</span></div>`;
         }
+    },
+
+    selectSearchResult(studentId) {
+        const inputAdmin = document.getElementById('input-search-student');
+        if (inputAdmin) inputAdmin.value = '';
+        const inputStudent = document.getElementById('input-search-student-view');
+        if (inputStudent) inputStudent.value = '';
+        const resAdmin = document.getElementById('search-results');
+        if (resAdmin) resAdmin.style.display = 'none';
+        const resStudent = document.getElementById('search-results-student');
+        if (resStudent) resStudent.style.display = 'none';
+
+        window.location.hash = `student/${studentId}`;
+        this.showStudent(studentId);
     },
 
     renderStudentActivities(student) {

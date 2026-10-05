@@ -31,7 +31,7 @@
     <!-- Tesseract.js para OCR de fotos e imágenes -->
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
-    <link rel="stylesheet" href="style.css?v=4.0">
+    <link rel="stylesheet" href="style.css?v=4.0.1">
 </head>
 
 <body>
@@ -154,6 +154,15 @@
                     </button>
                 </div>
             </header>
+
+            <div class="search-container card">
+                <div class="search-box">
+                    <i data-lucide="search"></i>
+                    <input type="text" id="input-search-student-view" placeholder="Buscar alumno en todos los grupos..."
+                        oninput="app.handleSearch(this.value, 'student')">
+                </div>
+                <div id="search-results-student" class="search-results-dropdown"></div>
+            </div>
 
             <div class="subject-tabs-container">
                 <button id="student-subject-tecnologia" class="subject-tab active" onclick="app.switchGlobalSubject('tecnologia')">
@@ -421,13 +430,13 @@
         window.appLogout = () => { if (window.app) window.app.logout(); };
         window.closeModal = () => { if (window.app) window.app.closeModal(); };
         window.handleModalConfirm = () => { if (window.app) window.app.handleModalConfirm(); };
-        window.handleSearch = (q) => { if (window.app) window.app.handleSearch(q); };
+        window.handleSearch = (q, src) => { if (window.app) window.app.handleSearch(q, src); };
     </script>
     <div id="toast-container" class="toast-container"></div>
     <div
         style="position: fixed; bottom: 5px; right: 5px; font-size: 10px; color: var(--text-muted); opacity: 0.5; z-index: 9999;">
         v4.0</div>
-    <script type="module" src="app.js?v=4.0"></script>
+    <script type="module" src="app.js?v=4.0.1"></script>
 </body>
 
 </html>
