@@ -130,6 +130,14 @@ const app = {
             }
 
             console.log("Datos cargados y normalizados.");
+            // Si ya estamos en la vista de un alumno, solo refrescar datos y mantener la pestaña activa
+            if (document.getElementById('view-student').classList.contains('active') && this.currentStudentId) {
+                const student = this.findStudent(this.currentStudentId);
+                if (student) {
+                    this.renderStudentView(student);
+                    return;
+                }
+            }
             this.checkRoute();
         }, (error) => {
             console.error("Firebase Read Error:", error);
@@ -461,8 +469,8 @@ const app = {
         // 4. Renderizar su información
         this.renderStudentView(student);
 
-        // 5. Resetear a la pestaña de actividades por defecto
-        this.switchTab('activities');
+        // 5. Mantener la pestaña activa actual o actividades por defecto
+        this.switchTab(this.currentTab || 'activities');
 
         // 6. Manejar acción automática (Agregar Actividad)
         if (autoAdd || this.pendingAction === 'add') {
@@ -688,11 +696,14 @@ const app = {
         this.showToast(`Entregando "${actName}". Seleccione la calificación.`, "info");
     },
 
+    currentTab: 'activities',
+
     switchTab(tabName) {
+        this.currentTab = tabName;
         // Actualizar botones
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.remove('active');
-            if (btn.getAttribute('onclick').includes(`'${tabName}'`)) {
+            if (btn.getAttribute('onclick')?.includes(`'${tabName}'`)) {
                 btn.classList.add('active');
             }
         });
@@ -701,7 +712,8 @@ const app = {
         document.querySelectorAll('.tab-content').forEach(content => {
             content.classList.remove('active');
         });
-        document.getElementById(`tab-content-${tabName}`).classList.add('active');
+        const contentEl = document.getElementById(`tab-content-${tabName}`);
+        if (contentEl) contentEl.classList.add('active');
     },
 
     updateActivitySuggestions() {
@@ -1350,9 +1362,9 @@ const app = {
             input.value = grade;
 
             // Visual feedback for selected button
-            document.querySelectorAll('.btn-grade').forEach(btn => {
+            document.querySelectorAll('#quick-grades .btn-grade').forEach(btn => {
                 btn.classList.remove('selected');
-                if (parseInt(btn.textContent) === grade) {
+                if (parseFloat(btn.textContent) === parseFloat(grade)) {
                     btn.classList.add('selected');
                 }
             });
@@ -1371,7 +1383,7 @@ const app = {
 
             document.querySelectorAll('#quick-grades-exam .btn-grade').forEach(btn => {
                 btn.classList.remove('selected');
-                if (parseInt(btn.textContent) === grade) {
+                if (parseFloat(btn.textContent) === parseFloat(grade)) {
                     btn.classList.add('selected');
                 }
             });
@@ -1443,6 +1455,7 @@ const app = {
         localStorage.setItem(`ntc_last_exam_${group.id}_${today}`, name);
 
         this.renderStudentExams(student);
+        this.switchTab('exams');
         this.showToast("Calificación de examen guardada.", "success");
 
         nameInput.value = localStorage.getItem(`ntc_last_exam_${group.id}_${today}`) || '';
